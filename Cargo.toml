@@ -1,0 +1,7 @@
+[package]
+name = "RAmqtt"
+version = "0.1.0"
+authors = ["00imvj00 <vijaybambhaniya007@gmail.com>"]
+edition = "2018"
+
+[dependencies]
