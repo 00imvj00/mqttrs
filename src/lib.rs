@@ -1,4 +1,10 @@
-pub mod packet;
+mod header;
+mod packet;
+
+pub use crate::{
+    header::{Header, PacketType},
+    packet::Packet,
+};
 
 #[cfg(test)]
 mod tests {
