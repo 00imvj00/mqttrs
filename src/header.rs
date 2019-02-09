@@ -1,7 +1,7 @@
 use crate::QoS;
 use std::io;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum PacketType {
     Connect,
     Connack,
@@ -80,6 +80,9 @@ impl Header {
             packet_type: PacketType::from_hd(hd)?,
         })
     }
+    pub fn packet(&self) -> PacketType {
+        self.packet_type
+    }
     #[inline]
     pub fn dup(&self) -> bool {
         (self.hd & 0b1000) != 0
@@ -91,5 +94,16 @@ impl Header {
     #[inline]
     pub fn retain(&self) -> bool {
         (self.hd & 1) != 0
+    }
+}
+
+/* TESTS */
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn header() {
+        let h = Header::new(0b00010000, 0).unwrap();
+        assert_eq!(h.packet(), PacketType::Connect)
     }
 }
