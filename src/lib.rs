@@ -16,6 +16,9 @@ pub use crate::{
     utils::{ConnectReturnCode, LastWill, PacketIdentifier, Protocol, QoS},
 };
 
+const MULTIPLIER: usize = 0x80 * 0x80 * 0x80 * 0x80;
+const MAX_PAYLOAD_SIZE: usize = 268435455;
+
 #[cfg(test)]
 mod tests {
     #[test]

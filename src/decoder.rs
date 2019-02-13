@@ -1,7 +1,49 @@
-use crate::Packet;
+use crate::MULTIPLIER;
+use crate::{Header, Packet};
 
 pub fn decode(buffer: &mut Vec<u8>) -> Option<Packet> {
-    unimplemented!()
+    if let Some(header) = read_header(&buffer) {
+        println!("Header read {:?}", header);
+        None
+    } else {
+        None
+    }
+}
+
+/* This will read the header of the stream */
+fn read_header(buffer: &Vec<u8>) -> Option<Header> {
+    if buffer.len() > 1 {
+        let header_u8 = buffer.get(0).unwrap();
+        if let Some(length) = read_length(buffer, 1) {
+            let header = Header::new(*header_u8, length).unwrap();
+            Some(header)
+        } else {
+            None
+        }
+    } else {
+        None
+    }
+}
+
+fn read_length(buffer: &Vec<u8>, mut pos: usize) -> Option<usize> {
+    let mut mult: usize = 1;
+    let mut len: usize = 0;
+    let mut done = false;
+
+    while !done {
+        let byte = (*buffer.get(pos).unwrap()) as usize;
+        len += (byte & 0x7F) * mult;
+        mult *= 0x80;
+        if mult > MULTIPLIER {
+            return None;
+        }
+        if (byte & 0x80) == 0 {
+            done = true;
+        } else {
+            pos += 1;
+        }
+    }
+    Some(len as usize)
 }
 
 #[cfg(test)]
