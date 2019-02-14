@@ -84,6 +84,10 @@ impl Header {
         self.packet_type
     }
     #[inline]
+    pub fn len(&self) -> usize {
+        self.len
+    }
+    #[inline]
     pub fn dup(&self) -> bool {
         (self.hd & 0b1000) != 0
     }
