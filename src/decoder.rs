@@ -1,9 +1,11 @@
 use crate::MULTIPLIER;
 use crate::*;
+use bytes::BytesMut;
+use std::io;
 
 #[allow(dead_code)]
-pub fn decode(mut buffer: Vec<u8>) -> Option<Packet> {
-    if let Some((header, header_size)) = read_header(&buffer) {
+pub fn decode(mut buffer: BytesMut) -> Option<Packet> {
+    if let Some((header, header_size)) = read_header(&mut buffer) {
         dbg!(header_size);
         buffer = buffer.split_off(header_size); //removing header bytes, possible ALLOC
         if header.len() == 0 {
@@ -12,14 +14,14 @@ pub fn decode(mut buffer: Vec<u8>) -> Option<Packet> {
                 PacketType::PingResp => Packet::PingResp,
                 PacketType::Disconnect => Packet::Disconnect,
                 _ => {
-                    println!("Phantom Packet. Error ");
+                    dbg!("Phantom Packet. Error ");
                     Packet::None
                 }
             };
             Some(p)
         } else if buffer.len() >= header.len() {
             let remaining = buffer.split_off(header.len());
-            let p = read_packet(header.packet(), buffer);
+            let p = read_packet(header.packet(), &mut buffer).unwrap();
             buffer = remaining;
             Some(p)
         } else {
@@ -30,27 +32,30 @@ pub fn decode(mut buffer: Vec<u8>) -> Option<Packet> {
     }
 }
 
-fn read_packet(t: PacketType, buffer: Vec<u8>) -> Packet {
+fn read_packet(t: PacketType, buffer: &mut BytesMut) -> Result<Packet, io::Error> {
     match t {
-        PacketType::Connect => Packet::None,
-        PacketType::Connack => Packet::None,
-        PacketType::Publish => Packet::None,
-        PacketType::Puback => Packet::None,
-        PacketType::Pubrec => Packet::None,
-        PacketType::Pubrel => Packet::None,
-        PacketType::PubComp => Packet::None,
-        PacketType::Subscribe => Packet::None,
-        PacketType::SubAck => Packet::None,
-        PacketType::UnSubscribe => Packet::None,
-        PacketType::UnSubAck => Packet::None,
+        PacketType::Connect => Ok(Packet::Connect(Connect::from_buffer(buffer)?)),
+        // PacketType::Connack => Packet::None,
+        // PacketType::Publish => Packet::None,
+        // PacketType::Puback => Packet::None,
+        // PacketType::Pubrec => Packet::None,
+        // PacketType::Pubrel => Packet::None,
+        // PacketType::PubComp => Packet::None,
+        // PacketType::Subscribe => Packet::None,
+        // PacketType::SubAck => Packet::None,
+        // PacketType::UnSubscribe => Packet::None,
+        // PacketType::UnSubAck => Packet::None,
         _ => {
-            println!("Phantom Packet. Error ");
-            Packet::None
+            dbg!("Phantom Packet. Error ");
+            Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "Invalid Packet",
+            ))
         }
     }
 }
 /* This will read the header of the stream */
-fn read_header(buffer: &Vec<u8>) -> Option<(Header, usize)> {
+fn read_header(buffer: &mut BytesMut) -> Option<(Header, usize)> {
     if buffer.len() > 1 {
         let header_u8 = buffer.get(0).unwrap();
         if let Some((length, size)) = read_length(buffer, 1) {
@@ -64,7 +69,7 @@ fn read_header(buffer: &Vec<u8>) -> Option<(Header, usize)> {
     }
 }
 
-fn read_length(buffer: &Vec<u8>, mut pos: usize) -> Option<(usize, usize)> {
+fn read_length(buffer: &BytesMut, mut pos: usize) -> Option<(usize, usize)> {
     let mut mult: usize = 1;
     let mut len: usize = 0;
     let mut done = false;

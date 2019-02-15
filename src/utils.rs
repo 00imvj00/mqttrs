@@ -1,3 +1,4 @@
+use bytes::{Buf, BytesMut, IntoBuf};
 use std::io;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -53,4 +54,40 @@ pub struct LastWill {
     pub message: String,
     pub qos: QoS,
     pub retain: bool,
+}
+
+impl Protocol {
+    pub fn new(name: &str, level: u8) -> Result<Protocol, io::Error> {
+        match name {
+            "MQIsdp" => match level {
+                3 => Ok(Protocol::MQIsdp(3)),
+                _ => Err(io::Error::new(io::ErrorKind::InvalidData, "")),
+            },
+            "MQTT" => match level {
+                4 => Ok(Protocol::MQTT(4)),
+                _ => Err(io::Error::new(io::ErrorKind::InvalidData, "")),
+            },
+            _ => Err(io::Error::new(io::ErrorKind::InvalidData, "")),
+        }
+    }
+
+    pub fn name(&self) -> &'static str {
+        match self {
+            &Protocol::MQIsdp(_) => "MQIsdp",
+            &Protocol::MQTT(_) => "MQTT",
+        }
+    }
+
+    pub fn level(&self) -> u8 {
+        match self {
+            &Protocol::MQIsdp(level) => level,
+            &Protocol::MQTT(level) => level,
+        }
+    }
+}
+
+pub fn read_string(buffer: &mut BytesMut) -> String {
+    let length = buffer.split_to(2).into_buf().get_u16_be();
+    let byts = buffer.split_to(length as usize);
+    return String::from_utf8(byts.to_vec()).unwrap().to_string();
 }
