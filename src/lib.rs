@@ -6,6 +6,7 @@ mod packet;
 mod publish;
 mod subscribe;
 mod utils;
+mod decoder_test;
 
 pub use crate::{
     connect::{Connack, Connect},
