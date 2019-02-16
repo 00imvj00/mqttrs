@@ -50,9 +50,11 @@ fn read_packet(header: Header, buffer: &mut BytesMut) -> Result<Packet, io::Erro
             buffer.split_to(2).into_buf().get_u16_be(),
         ))),
         PacketType::Subscribe => Ok(Packet::Subscribe(Subscribe::from_buffer(buffer)?)),
-        // PacketType::SubAck => Packet::None,
-        // PacketType::UnSubscribe => Packet::None,
-        // PacketType::UnSubAck => Packet::None,
+        PacketType::SubAck => Ok(Packet::SubAck(Suback::from_buffer(buffer)?)),
+        PacketType::UnSubscribe => Ok(Packet::UnSubscribe(Unsubscribe::from_buffer(buffer)?)),
+        PacketType::UnSubAck => Ok(Packet::UnSubAck(PacketIdentifier(
+            buffer.split_to(2).into_buf().get_u16_be(),
+        ))),
         _ => {
             dbg!("Phantom Packet. Error ");
             Err(io::Error::new(

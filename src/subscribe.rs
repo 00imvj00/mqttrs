@@ -45,3 +45,32 @@ impl Subscribe {
         Ok(Subscribe { pid, topics })
     }
 }
+
+impl Unsubscribe {
+    pub fn from_buffer(buffer: &mut BytesMut) -> Result<Self, io::Error> {
+        let pid = PacketIdentifier(buffer.split_to(2).into_buf().get_u16_be());
+        let mut topics: Vec<String> = Vec::new();
+        while buffer.len() != 0 {
+            let topic_path = utils::read_string(buffer);
+            topics.push(topic_path);
+        }
+        Ok(Unsubscribe { pid, topics })
+    }
+}
+
+impl Suback {
+    pub fn from_buffer(buffer: &mut BytesMut) -> Result<Self, io::Error> {
+        let pid = PacketIdentifier(buffer.split_to(2).into_buf().get_u16_be());
+        let mut return_codes: Vec<SubscribeReturnCodes> = Vec::new();
+        while buffer.len() != 0 {
+            let code = buffer.split_to(1).into_buf().get_u8();
+            let r = if code == 0x80 {
+                SubscribeReturnCodes::Failure
+            } else {
+                SubscribeReturnCodes::Success(QoS::from_u8(code)?)
+            };
+            return_codes.push(r);
+        }
+        Ok(Suback { return_codes, pid })
+    }
+}
