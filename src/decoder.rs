@@ -49,7 +49,7 @@ fn read_packet(header: Header, buffer: &mut BytesMut) -> Result<Packet, io::Erro
         PacketType::PubComp => Ok(Packet::PubComp(PacketIdentifier(
             buffer.split_to(2).into_buf().get_u16_be(),
         ))),
-        // PacketType::Subscribe => Packet::None,
+        PacketType::Subscribe => Ok(Packet::Subscribe(Subscribe::from_buffer(buffer)?)),
         // PacketType::SubAck => Packet::None,
         // PacketType::UnSubscribe => Packet::None,
         // PacketType::UnSubAck => Packet::None,
