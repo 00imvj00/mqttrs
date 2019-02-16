@@ -34,7 +34,7 @@ pub fn decode(buffer: &mut BytesMut) -> Option<Packet> {
 fn read_packet(t: PacketType, buffer: &mut BytesMut) -> Result<Packet, io::Error> {
     match t {
         PacketType::Connect => Ok(Packet::Connect(Connect::from_buffer(buffer)?)),
-        // PacketType::Connack => Packet::None,
+        PacketType::Connack => Ok(Packet::Connack(Connack::from_buffer(buffer)?)),
         // PacketType::Publish => Packet::None,
         // PacketType::Puback => Packet::None,
         // PacketType::Pubrec => Packet::None,

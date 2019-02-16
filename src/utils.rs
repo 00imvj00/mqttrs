@@ -86,6 +86,31 @@ impl Protocol {
     }
 }
 
+impl ConnectReturnCode {
+    pub fn to_u8(&self) -> u8 {
+        match *self {
+            ConnectReturnCode::Accepted => 0,
+            ConnectReturnCode::RefusedProtocolVersion => 1,
+            ConnectReturnCode::RefusedIdentifierRejected => 2,
+            ConnectReturnCode::ServerUnavailable => 3,
+            ConnectReturnCode::BadUsernamePassword => 4,
+            ConnectReturnCode::NotAuthorized => 5,
+        }
+    }
+
+    pub fn from_u8(byte: u8) -> Result<ConnectReturnCode, io::Error> {
+        match byte {
+            0 => Ok(ConnectReturnCode::Accepted),
+            1 => Ok(ConnectReturnCode::RefusedProtocolVersion),
+            2 => Ok(ConnectReturnCode::RefusedIdentifierRejected),
+            3 => Ok(ConnectReturnCode::ServerUnavailable),
+            4 => Ok(ConnectReturnCode::BadUsernamePassword),
+            5 => Ok(ConnectReturnCode::NotAuthorized),
+            _ => Err(io::Error::new(io::ErrorKind::InvalidInput, "")),
+        }
+    }
+}
+
 pub fn read_string(buffer: &mut BytesMut) -> String {
     let length = buffer.split_to(2).into_buf().get_u16_be();
     let byts = buffer.split_to(length as usize);

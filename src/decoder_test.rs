@@ -1,4 +1,4 @@
-use crate::decoder;
+use crate::{decoder, Connack, ConnectReturnCode, Packet};
 use bytes::BytesMut;
 
 #[test]
@@ -37,4 +37,22 @@ fn test_connect() {
     let d = decoder::decode(&mut data);
     assert_ne!(d, None);
     assert_eq!(data.len(), 0);
+}
+
+#[test]
+fn test_connack() {
+    //let mut data = BytesMut::from(vec![0b00100000, 2, 0b00000001, 0b00000000]);
+    let mut data = BytesMut::from(vec![0b00100000, 2, 0b00000000, 0b00000001]);
+    let d = decoder::decode(&mut data).unwrap();
+    match d {
+        Packet::Connack(c) => {
+            let o = Connack {
+                session_present: false,
+                code: ConnectReturnCode::RefusedProtocolVersion,
+            };
+            assert_eq!(c.session_present, o.session_present);
+            assert_eq!(c.code, o.code);
+        }
+        _ => panic!(),
+    }
 }

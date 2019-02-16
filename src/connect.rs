@@ -69,3 +69,14 @@ impl Connect {
         })
     }
 }
+
+impl Connack {
+    pub fn from_buffer(buffer: &mut BytesMut) -> Result<Self, io::Error> {
+        let flags = buffer.split_to(1).into_buf().get_u8();
+        let return_code = buffer.split_to(1).into_buf().get_u8();
+        Ok(Connack {
+            session_present: (flags & 0b1 == 1),
+            code: ConnectReturnCode::from_u8(return_code)?,
+        })
+    }
+}
