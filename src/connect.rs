@@ -30,7 +30,7 @@ impl Connect {
 
         let client_id = utils::read_string(buffer);
 
-        let last_will = if connect_flags & 0b100 == 1 {
+        let last_will = if connect_flags & 0b100 != 0 {
             let will_topic = utils::read_string(buffer);
             let will_message = utils::read_string(buffer);
             let will_qod = QoS::from_u8((connect_flags & 0b11000) >> 3).unwrap();
