@@ -1,6 +1,6 @@
 use crate::MULTIPLIER;
 use crate::*;
-use bytes::BytesMut;
+use bytes::{Buf, BytesMut, IntoBuf};
 use std::io;
 
 #[allow(dead_code)]
@@ -37,10 +37,18 @@ fn read_packet(header: Header, buffer: &mut BytesMut) -> Result<Packet, io::Erro
         PacketType::Connect => Ok(Packet::Connect(Connect::from_buffer(buffer)?)),
         PacketType::Connack => Ok(Packet::Connack(Connack::from_buffer(buffer)?)),
         PacketType::Publish => Ok(Packet::Publish(Publish::from_buffer(header, buffer)?)),
-        // PacketType::Puback => Packet::None,
-        // PacketType::Pubrec => Packet::None,
-        // PacketType::Pubrel => Packet::None,
-        // PacketType::PubComp => Packet::None,
+        PacketType::Puback => Ok(Packet::Puback(PacketIdentifier(
+            buffer.split_to(2).into_buf().get_u16_be(),
+        ))),
+        PacketType::Pubrec => Ok(Packet::Pubrec(PacketIdentifier(
+            buffer.split_to(2).into_buf().get_u16_be(),
+        ))),
+        PacketType::Pubrel => Ok(Packet::Pubrel(PacketIdentifier(
+            buffer.split_to(2).into_buf().get_u16_be(),
+        ))),
+        PacketType::PubComp => Ok(Packet::PubComp(PacketIdentifier(
+            buffer.split_to(2).into_buf().get_u16_be(),
+        ))),
         // PacketType::Subscribe => Packet::None,
         // PacketType::SubAck => Packet::None,
         // PacketType::UnSubscribe => Packet::None,
