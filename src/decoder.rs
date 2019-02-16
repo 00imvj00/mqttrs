@@ -4,10 +4,10 @@ use bytes::BytesMut;
 use std::io;
 
 #[allow(dead_code)]
-pub fn decode(mut buffer: BytesMut) -> Option<Packet> {
-    if let Some((header, header_size)) = read_header(&mut buffer) {
+pub fn decode(buffer: &mut BytesMut) -> Option<Packet> {
+    if let Some((header, header_size)) = read_header(buffer) {
         dbg!(header_size);
-        buffer = buffer.split_off(header_size); //removing header bytes, possible ALLOC
+        buffer.split_to(header_size); //removing header bytes, possible ALLOC
         if header.len() == 0 {
             let p = match header.packet() {
                 PacketType::PingReq => Packet::PingReq,
@@ -20,9 +20,8 @@ pub fn decode(mut buffer: BytesMut) -> Option<Packet> {
             };
             Some(p)
         } else if buffer.len() >= header.len() {
-            let remaining = buffer.split_off(header.len());
-            let p = read_packet(header.packet(), &mut buffer).unwrap();
-            buffer = remaining;
+            let mut packet = buffer.split_to(header.len());
+            let p = read_packet(header.packet(), &mut packet).unwrap();
             Some(p)
         } else {
             None
