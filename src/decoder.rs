@@ -21,7 +21,7 @@ pub fn decode(buffer: &mut BytesMut) -> Option<Packet> {
             Some(p)
         } else if buffer.len() >= header.len() {
             let mut packet = buffer.split_to(header.len());
-            let p = read_packet(header.packet(), &mut packet).unwrap();
+            let p = read_packet(header, &mut packet).unwrap();
             Some(p)
         } else {
             None
@@ -31,11 +31,12 @@ pub fn decode(buffer: &mut BytesMut) -> Option<Packet> {
     }
 }
 
-fn read_packet(t: PacketType, buffer: &mut BytesMut) -> Result<Packet, io::Error> {
+fn read_packet(header: Header, buffer: &mut BytesMut) -> Result<Packet, io::Error> {
+    let t = header.packet();
     match t {
         PacketType::Connect => Ok(Packet::Connect(Connect::from_buffer(buffer)?)),
         PacketType::Connack => Ok(Packet::Connack(Connack::from_buffer(buffer)?)),
-        // PacketType::Publish => Packet::None,
+        PacketType::Publish => Ok(Packet::Publish(Publish::from_buffer(header, buffer)?)),
         // PacketType::Puback => Packet::None,
         // PacketType::Pubrec => Packet::None,
         // PacketType::Pubrel => Packet::None,
