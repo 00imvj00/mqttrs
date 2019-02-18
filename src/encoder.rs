@@ -62,6 +62,5 @@ pub fn encode(packet: &Packet, buffer: &mut BytesMut) -> Result<(), io::Error> {
             buffer.put(0b11100000 as u8);
             Ok(())
         },
-        Packet::None => Ok(()),
     }
 }
