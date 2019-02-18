@@ -1,5 +1,5 @@
-use crate::{utils, ConnectReturnCode, LastWill, Protocol, QoS};
-use bytes::{Buf, BytesMut, IntoBuf};
+use crate::{encoder, utils, ConnectReturnCode, LastWill, Protocol, QoS};
+use bytes::{Buf, BufMut, BytesMut, IntoBuf};
 use std::io;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -67,6 +67,59 @@ impl Connect {
             last_will,
             clean_session,
         })
+    }
+    pub fn to_buffer(&self, buffer: &mut BytesMut) -> Result<(), io::Error> {
+        let header_u8: u8 = 0b00010000;
+        let mut length: usize = 6 + 1 + 1; //NOTE: protocol_name(6) + protocol_level(1) + flags(1);
+        let mut connect_flags: u8 = 0b00000000;
+        if self.clean_session {
+            connect_flags |= 0b10;
+        };
+        length += self.client_id.len();
+        if let Some(username) = &self.username {
+            connect_flags |= 0b10000000;
+            length += username.len();
+            length += 2;
+        };
+        if let Some(password) = &self.password {
+            connect_flags |= 0b01000000;
+            length += password.len();
+            length += 2;
+        };
+        if let Some(last_will) = &self.last_will {
+            connect_flags |= 0b00000100;
+            connect_flags |= last_will.qos.to_u8() << 3;
+            if last_will.retain {
+                connect_flags |= 0b00100000;
+            };
+            length += last_will.message.len();
+            length += last_will.topic.len();
+            length += 4;
+        };
+        length += 2; //keep alive
+
+        //NOTE: putting data into buffer.
+        buffer.put(header_u8);
+        encoder::write_length(length, buffer)?;
+        encoder::write_string(self.protocol.name(), buffer)?;
+        buffer.put(self.protocol.level());
+        buffer.put(connect_flags);
+        buffer.put_u16_be(self.keep_alive);
+        encoder::write_string(self.client_id.as_ref(), buffer)?;
+
+        if let Some(last_will) = &self.last_will {
+            encoder::write_string(last_will.topic.as_ref(), buffer)?;
+            encoder::write_string(last_will.message.as_ref(), buffer)?;
+        };
+
+        if let Some(username) = &self.username {
+            encoder::write_string(username.as_ref(), buffer)?;
+        };
+        if let Some(password) = &self.password {
+            encoder::write_string(password.as_ref(), buffer)?;
+        };
+        //NOTE: END
+        Ok(())
     }
 }
 
