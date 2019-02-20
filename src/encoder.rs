@@ -40,9 +40,9 @@ pub fn encode(packet: &Packet, buffer: &mut BytesMut) -> Result<(), io::Error> {
             buffer.put_u16_be(pid.0);
             Ok(())
         }
-        Packet::Subscribe(subscribe) => Ok(()),
-        Packet::SubAck(suback) => Ok(()),
-        Packet::UnSubscribe(unsub) => Ok(()),
+        Packet::Subscribe(subscribe) => subscribe.to_buffer(buffer),
+        Packet::SubAck(suback) => suback.to_buffer(buffer),
+        Packet::UnSubscribe(unsub) => unsub.to_buffer(buffer),
         Packet::UnSubAck(pid) => {
             let header_u8 = 0b10110000 as u8;
             let length = 0b00000010 as u8;

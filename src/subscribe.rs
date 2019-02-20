@@ -1,5 +1,5 @@
-use crate::{utils, PacketIdentifier, QoS};
-use bytes::{Buf, BytesMut, IntoBuf};
+use crate::{encoder, utils, PacketIdentifier, QoS};
+use bytes::{Buf, BufMut, BytesMut, IntoBuf};
 use std::io;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -12,6 +12,14 @@ pub struct SubscribeTopic {
 pub enum SubscribeReturnCodes {
     Success(QoS),
     Failure,
+}
+impl SubscribeReturnCodes {
+    pub fn to_u8(&self) -> u8 {
+        match *self {
+            SubscribeReturnCodes::Failure => 0x80,
+            SubscribeReturnCodes::Success(qos) => qos.to_u8(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -44,6 +52,30 @@ impl Subscribe {
         }
         Ok(Subscribe { pid, topics })
     }
+
+    pub fn to_buffer(&self, buffer: &mut BytesMut) -> Result<(), io::Error> {
+        let header_u8: u8 = 0b10000010;
+
+        let mut length = 0;
+        length += 2;
+
+        for topic in &self.topics {
+            length += topic.topic_path.len() + 2 + 1;
+        }
+
+        let PacketIdentifier(pid) = self.pid;
+
+        buffer.put(header_u8);
+        encoder::write_length(length, buffer)?;
+        buffer.put_u16_be(pid as u16);
+
+        for topic in &self.topics {
+            encoder::write_string(topic.topic_path.as_ref(), buffer)?;
+            buffer.put(topic.qos.to_u8());
+        }
+
+        Ok(())
+    }
 }
 
 impl Unsubscribe {
@@ -55,6 +87,23 @@ impl Unsubscribe {
             topics.push(topic_path);
         }
         Ok(Unsubscribe { pid, topics })
+    }
+
+    pub fn to_buffer(&self, buffer: &mut  BytesMut) -> Result<(), io::Error>{
+        let header_u8 : u8 = 0b10100010;
+        let PacketIdentifier(pid) = self.pid;
+        let mut length = 2;
+        for topic in &self.topics{
+            length += 2 + topic.len();
+        }
+
+        buffer.put(header_u8);
+        encoder::write_length(length, buffer)?;
+        buffer.put_u16_be(pid as u16);
+        for topic in&self.topics{
+            encoder::write_string(topic.as_ref(), buffer)?;
+        }
+        Ok(())
     }
 }
 
@@ -72,5 +121,18 @@ impl Suback {
             return_codes.push(r);
         }
         Ok(Suback { return_codes, pid })
+    }
+    pub fn to_buffer(&self, buffer: &mut BytesMut) -> Result<(), io::Error> {
+        let header_u8: u8 = 0b10010000;
+        let PacketIdentifier(pid) = self.pid;
+        let length = 2 + self.return_codes.len();
+
+        buffer.put(header_u8);
+        encoder::write_length(length, buffer)?;
+        buffer.put_u16_be(pid);
+        for rc in &self.return_codes {
+            buffer.put(rc.to_u8());
+        }
+        Ok(())
     }
 }
