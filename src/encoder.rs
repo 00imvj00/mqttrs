@@ -2,10 +2,11 @@ use crate::{Packet, MAX_PAYLOAD_SIZE};
 use bytes::{Buf, BufMut, BytesMut};
 use std::io;
 
+#[allow(dead_code)]
 pub fn encode(packet: &Packet, buffer: &mut BytesMut) -> Result<(), io::Error> {
     match packet {
         Packet::Connect(connect) => connect.to_buffer(buffer),
-        Packet::Connack(connack) => Ok(()),
+        Packet::Connack(connack) => connack.to_buffer(buffer),
         Packet::Publish(publish) => Ok(()),
         Packet::Puback(pid) => {
             let header_u8 = 0b01000000 as u8;

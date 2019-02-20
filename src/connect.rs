@@ -132,4 +132,18 @@ impl Connack {
             code: ConnectReturnCode::from_u8(return_code)?,
         })
     }
+    pub fn to_buffer(&self, buffer: &mut BytesMut) -> Result<(), io::Error> {
+        let header_u8 = 0b00100000 as u8;
+        let length = 2 as u8;
+        let mut flags = 0b00000000 as u8;
+        if self.session_present {
+            flags |= 0b1;
+        };
+        let rc = self.code.to_u8();
+        buffer.put(header_u8);
+        buffer.put(length);
+        buffer.put(flags);
+        buffer.put(rc);
+        Ok(())
+    }
 }
