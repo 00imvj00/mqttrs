@@ -7,7 +7,7 @@ pub fn encode(packet: &Packet, buffer: &mut BytesMut) -> Result<(), io::Error> {
     match packet {
         Packet::Connect(connect) => connect.to_buffer(buffer),
         Packet::Connack(connack) => connack.to_buffer(buffer),
-        Packet::Publish(publish) => Ok(()),
+        Packet::Publish(publish) => publish.to_buffer(buffer),
         Packet::Puback(pid) => {
             let header_u8 = 0b01000000 as u8;
             let length = 0b00000010 as u8;
