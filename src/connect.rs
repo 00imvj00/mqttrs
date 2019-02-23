@@ -75,7 +75,8 @@ impl Connect {
         if self.clean_session {
             connect_flags |= 0b10;
         };
-        length += self.client_id.len();
+        length += 2 + self.client_id.len();
+        length += 2; //keep alive
         if let Some(username) = &self.username {
             connect_flags |= 0b10000000;
             length += username.len();
@@ -96,7 +97,6 @@ impl Connect {
             length += last_will.topic.len();
             length += 4;
         };
-        length += 2; //keep alive
 
         //NOTE: putting data into buffer.
         buffer.put(header_u8);

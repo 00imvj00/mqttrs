@@ -2,6 +2,7 @@ mod connect;
 mod decoder;
 mod decoder_test;
 mod encoder;
+mod encoder_test;
 mod header;
 mod packet;
 mod publish;

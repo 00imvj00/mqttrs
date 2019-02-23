@@ -53,14 +53,17 @@ pub fn encode(packet: &Packet, buffer: &mut BytesMut) -> Result<(), io::Error> {
         }
         Packet::PingReq => {
             buffer.put(0b11000000 as u8);
+            buffer.put(0b00000000 as u8);
             Ok(())
         }
         Packet::PingResp => {
             buffer.put(0b11010000 as u8);
+            buffer.put(0b00000000 as u8);
             Ok(())
         }
         Packet::Disconnect => {
             buffer.put(0b11100000 as u8);
+            buffer.put(0b00000000 as u8);
             Ok(())
         }
     }
