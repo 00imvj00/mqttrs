@@ -1,4 +1,7 @@
-use crate::{decoder, Connack, ConnectReturnCode, Packet, QoS};
+use crate::{
+    decoder, Connack, ConnectReturnCode, Packet, PacketIdentifier, QoS, SubscribeReturnCodes,
+    SubscribeTopic,
+};
 use bytes::BytesMut;
 
 #[test]
@@ -84,7 +87,7 @@ fn test_publish() {
         0b00110000, 12, 0x00, 0x03, 'a' as u8, '/' as u8, 'b' as u8, 0x00, 0x10, 'h' as u8,
         'e' as u8, 'l' as u8, 'l' as u8, 'o' as u8, 0b00111000, 12, 0x00, 0x03, 'a' as u8,
         '/' as u8, 'b' as u8, 0x00, 0x10, 'h' as u8, 'e' as u8, 'l' as u8, 'l' as u8, 'o' as u8,
-        0b00111101, 12, 0x00, 0x03, 'a' as u8, '/' as u8, 'b' as u8, 0x00, 0x10, 'h' as u8,
+        0b00111101, 12, 0x00, 0x03, 'a' as u8, '/' as u8, 'b' as u8, 0 as u8, 10 as u8, 'h' as u8,
         'e' as u8, 'l' as u8, 'l' as u8, 'o' as u8,
     ]);
     let d1 = decoder::decode(&mut data).unwrap();
@@ -116,8 +119,121 @@ fn test_publish() {
             assert_eq!(p.retain, true);
             assert_eq!(p.qos, QoS::ExactlyOnce);
             assert_eq!(p.topic_name, "a/b");
+            assert_eq!(p.pid.unwrap(), PacketIdentifier(10));
             assert_eq!(String::from_utf8(p.payload).unwrap(), "hello");
         }
         _ => panic!("Should not be None"),
+    }
+}
+
+#[test]
+fn test_pub_ack() {
+    let mut data = BytesMut::from(vec![0b01000000, 0b00000010, 0 as u8, 10 as u8]);
+    let d = decoder::decode(&mut data).unwrap();
+    match d {
+        Some(Packet::Puback(a)) => {
+            assert_eq!(a.0, 10);
+        }
+        _ => panic!(),
+    }
+}
+
+#[test]
+fn test_pub_rec() {
+    let mut data = BytesMut::from(vec![0b01010000, 0b00000010, 0 as u8, 10 as u8]);
+    let d = decoder::decode(&mut data).unwrap();
+    match d {
+        Some(Packet::Pubrec(a)) => {
+            assert_eq!(a.0, 10);
+        }
+        _ => panic!(),
+    }
+}
+
+#[test]
+fn test_pub_rel() {
+    let mut data = BytesMut::from(vec![0b01100010, 0b00000010, 0 as u8, 10 as u8]);
+    let d = decoder::decode(&mut data).unwrap();
+    match d {
+        Some(Packet::Pubrel(a)) => {
+            assert_eq!(a.0, 10);
+        }
+        _ => panic!(),
+    }
+}
+
+#[test]
+fn test_pub_comp() {
+    let mut data = BytesMut::from(vec![0b01110000, 0b00000010, 0 as u8, 10 as u8]);
+    let d = decoder::decode(&mut data).unwrap();
+    match d {
+        Some(Packet::PubComp(a)) => {
+            assert_eq!(a.0, 10);
+        }
+        _ => panic!(),
+    }
+}
+
+#[test]
+fn test_subscribe() {
+    let mut data = BytesMut::from(vec![
+        0b10000010, 8, 0 as u8, 10 as u8, 0 as u8, 3 as u8, 'a' as u8, '/' as u8, 'b' as u8,
+        0 as u8,
+    ]);
+    let d = decoder::decode(&mut data).unwrap();
+    match d {
+        Some(Packet::Subscribe(s)) => {
+            assert_eq!(s.pid.0, 10);
+            let t = SubscribeTopic {
+                topic_path: "a/b".to_string(),
+                qos: QoS::AtMostOnce,
+            };
+            assert_eq!(s.topics[0], t);
+        }
+        _ => panic!(),
+    }
+}
+
+#[test]
+
+fn test_suback() {
+    let mut data = BytesMut::from(vec![0b10010000, 3, 0 as u8, 10 as u8, 0b00000010]);
+    let d = decoder::decode(&mut data).unwrap();
+    match d {
+        Some(Packet::SubAck(s)) => {
+            assert_eq!(s.pid.0, 10);
+            assert_eq!(
+                s.return_codes[0],
+                SubscribeReturnCodes::Success(QoS::ExactlyOnce)
+            );
+        }
+        _ => panic!(),
+    }
+}
+
+#[test]
+fn test_unsubscribe() {
+    let mut data = BytesMut::from(vec![
+        0b10100010, 5, 0 as u8, 10 as u8, 0 as u8, 1 as u8, 'a' as u8,
+    ]);
+    let d = decoder::decode(&mut data).unwrap();
+    match d {
+        Some(Packet::UnSubscribe(a)) => {
+            assert_eq!(a.pid.0, 10);
+            assert_eq!(a.topics[0], 'a'.to_string());
+        }
+        _ => panic!(),
+    }
+}
+
+#[test]
+fn test_unsub_ack() {
+    let mut data = BytesMut::from(vec![0b10110000, 2, 0 as u8, 10 as u8]);
+    let d = decoder::decode(&mut data).unwrap();
+    match d {
+        Some(Packet::UnSubAck(p)) => {
+            assert_eq!(p.0, 10);
+        }
+        _ => panic!(),
     }
 }
