@@ -16,7 +16,7 @@ fn test_half_connect() {
               // 0x00, 0x02, 'm' as u8, 'q' as u8, // password = 'mq'
     ]);
     let length = data.len();
-    let d = decoder::decode(&mut data);
+    let d = decoder::decode(&mut data).unwrap();
     assert_eq!(d, None);
     assert_eq!(length, 12);
 }
@@ -34,7 +34,7 @@ fn test_connect() {
         0x00, 0x04, 'r' as u8, 'u' as u8, 's' as u8, 't' as u8, // username = 'rust'
         0x00, 0x02, 'm' as u8, 'q' as u8, // password = 'mq'
     ]);
-    let d = decoder::decode(&mut data);
+    let d = decoder::decode(&mut data).unwrap();
     assert_ne!(d, None);
     assert_eq!(data.len(), 0);
 }
@@ -45,7 +45,7 @@ fn test_connack() {
     let mut data = BytesMut::from(vec![0b00100000, 2, 0b00000000, 0b00000001]);
     let d = decoder::decode(&mut data).unwrap();
     match d {
-        Packet::Connack(c) => {
+        Some(Packet::Connack(c)) => {
             let o = Connack {
                 session_present: false,
                 code: ConnectReturnCode::RefusedProtocolVersion,

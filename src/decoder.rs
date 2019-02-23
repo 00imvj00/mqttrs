@@ -4,62 +4,47 @@ use bytes::{Buf, BytesMut, IntoBuf};
 use std::io;
 
 #[allow(dead_code)]
-pub fn decode(buffer: &mut BytesMut) -> Option<Packet> {
+pub fn decode(buffer: &mut BytesMut) -> Result<Option<Packet>, io::Error> {
     if let Some((header, header_size)) = read_header(buffer) {
         buffer.split_to(header_size);
-        if header.len() == 0 {
-            match header.packet() {
-                PacketType::PingReq => Some(Packet::PingReq),
-                PacketType::PingResp => Some(Packet::PingResp),
-                PacketType::Disconnect => Some(Packet::Disconnect),
-                _ => {
-                    dbg!("Phantom Packet. Error ");
-                    None
-                }
-            }
-        } else if buffer.len() >= header.len() {
-            let mut packet = buffer.split_to(header.len());
-            let p = read_packet(header, &mut packet).unwrap();
-            Some(p)
+        if buffer.len() >= header.len() {
+            let p = read_packet(header, buffer)?;
+            Ok(Some(p))
         } else {
-            None
+            Ok(None)
         }
     } else {
-        None
+        Ok(None)
     }
 }
 
 fn read_packet(header: Header, buffer: &mut BytesMut) -> Result<Packet, io::Error> {
     let t = header.packet();
     match t {
+        PacketType::PingReq => Ok(Packet::PingReq),
+        PacketType::PingResp => Ok(Packet::PingResp),
+        PacketType::Disconnect => Ok(Packet::Disconnect),
         PacketType::Connect => Ok(Packet::Connect(Connect::from_buffer(buffer)?)),
         PacketType::Connack => Ok(Packet::Connack(Connack::from_buffer(buffer)?)),
         PacketType::Publish => Ok(Packet::Publish(Publish::from_buffer(header, buffer)?)),
         PacketType::Puback => Ok(Packet::Puback(PacketIdentifier(
-                    buffer.split_to(2).into_buf().get_u16_be(),
-                    ))),
+            buffer.split_to(2).into_buf().get_u16_be(),
+        ))),
         PacketType::Pubrec => Ok(Packet::Pubrec(PacketIdentifier(
-                    buffer.split_to(2).into_buf().get_u16_be(),
-                    ))),
+            buffer.split_to(2).into_buf().get_u16_be(),
+        ))),
         PacketType::Pubrel => Ok(Packet::Pubrel(PacketIdentifier(
-                    buffer.split_to(2).into_buf().get_u16_be(),
-                    ))),
+            buffer.split_to(2).into_buf().get_u16_be(),
+        ))),
         PacketType::PubComp => Ok(Packet::PubComp(PacketIdentifier(
-                    buffer.split_to(2).into_buf().get_u16_be(),
-                    ))),
+            buffer.split_to(2).into_buf().get_u16_be(),
+        ))),
         PacketType::Subscribe => Ok(Packet::Subscribe(Subscribe::from_buffer(buffer)?)),
         PacketType::SubAck => Ok(Packet::SubAck(Suback::from_buffer(buffer)?)),
         PacketType::UnSubscribe => Ok(Packet::UnSubscribe(Unsubscribe::from_buffer(buffer)?)),
         PacketType::UnSubAck => Ok(Packet::UnSubAck(PacketIdentifier(
-                    buffer.split_to(2).into_buf().get_u16_be(),
-                    ))),
-        _ => {
-            dbg!("Phantom Packet. Error ");
-            Err(io::Error::new(
-                    io::ErrorKind::InvalidInput,
-                    "Invalid Packet",
-                    ))
-        }
+            buffer.split_to(2).into_buf().get_u16_be(),
+        ))),
     }
 }
 /* This will read the header of the stream */
