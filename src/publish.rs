@@ -13,7 +13,7 @@ pub struct Publish {
 }
 
 impl Publish {
-    pub fn from_buffer(header: Header, buffer: &mut BytesMut) -> Result<Self, io::Error> {
+    pub fn from_buffer(header: &Header, buffer: &mut BytesMut) -> Result<Self, io::Error> {
         let topic_name = utils::read_string(buffer);
         let pid = Some(PacketIdentifier(buffer.split_to(2).into_buf().get_u16_be()));
         let payload = buffer.to_vec();

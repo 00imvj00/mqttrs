@@ -24,9 +24,16 @@ fn read_packet(header: Header, buffer: &mut BytesMut) -> Result<Packet, io::Erro
         PacketType::PingReq => Ok(Packet::PingReq),
         PacketType::PingResp => Ok(Packet::PingResp),
         PacketType::Disconnect => Ok(Packet::Disconnect),
-        PacketType::Connect => Ok(Packet::Connect(Connect::from_buffer(buffer)?)),
-        PacketType::Connack => Ok(Packet::Connack(Connack::from_buffer(buffer)?)),
-        PacketType::Publish => Ok(Packet::Publish(Publish::from_buffer(header, buffer)?)),
+        PacketType::Connect => Ok(Packet::Connect(Connect::from_buffer(
+            &mut buffer.split_to(header.len()),
+        )?)),
+        PacketType::Connack => Ok(Packet::Connack(Connack::from_buffer(
+            &mut buffer.split_to(header.len()),
+        )?)),
+        PacketType::Publish => Ok(Packet::Publish(Publish::from_buffer(
+            &header,
+            &mut buffer.split_to(header.len()),
+        )?)),
         PacketType::Puback => Ok(Packet::Puback(PacketIdentifier(
             buffer.split_to(2).into_buf().get_u16_be(),
         ))),
@@ -39,9 +46,15 @@ fn read_packet(header: Header, buffer: &mut BytesMut) -> Result<Packet, io::Erro
         PacketType::PubComp => Ok(Packet::PubComp(PacketIdentifier(
             buffer.split_to(2).into_buf().get_u16_be(),
         ))),
-        PacketType::Subscribe => Ok(Packet::Subscribe(Subscribe::from_buffer(buffer)?)),
-        PacketType::SubAck => Ok(Packet::SubAck(Suback::from_buffer(buffer)?)),
-        PacketType::UnSubscribe => Ok(Packet::UnSubscribe(Unsubscribe::from_buffer(buffer)?)),
+        PacketType::Subscribe => Ok(Packet::Subscribe(Subscribe::from_buffer(
+            &mut buffer.split_to(header.len()),
+        )?)),
+        PacketType::SubAck => Ok(Packet::SubAck(Suback::from_buffer(
+            &mut buffer.split_to(header.len()),
+        )?)),
+        PacketType::UnSubscribe => Ok(Packet::UnSubscribe(Unsubscribe::from_buffer(
+            &mut buffer.split_to(header.len()),
+        )?)),
         PacketType::UnSubAck => Ok(Packet::UnSubAck(PacketIdentifier(
             buffer.split_to(2).into_buf().get_u16_be(),
         ))),
