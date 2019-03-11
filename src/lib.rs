@@ -1,13 +1,14 @@
 mod connect;
-mod decoder;
 mod decoder_test;
-mod encoder;
 mod encoder_test;
 mod header;
 mod packet;
 mod publish;
 mod subscribe;
 mod utils;
+
+pub mod decoder;
+pub mod encoder;
 
 pub use crate::{
     connect::{Connack, Connect},
