@@ -1,3 +1,5 @@
+#![allow(unused_imports)]
+
 use crate::{
     decoder, Connack, ConnectReturnCode, Packet, PacketIdentifier, QoS, SubscribeReturnCodes,
     SubscribeTopic,

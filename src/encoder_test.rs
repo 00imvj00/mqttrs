@@ -1,8 +1,12 @@
+#[allow(unused_imports)]
 use crate::{
     decoder, encoder, Connack, Connect, ConnectReturnCode, Packet, PacketIdentifier, Protocol,
     Publish, QoS, Suback, Subscribe, SubscribeReturnCodes, SubscribeTopic, Unsubscribe,
 };
+
+#[allow(unused_imports)]
 use bytes::BytesMut;
+
 #[test]
 fn test_connect() {
     let packet = Connect {
@@ -142,10 +146,10 @@ fn test_subscribe() {
 
 #[test]
 fn test_suback() {
-    let returnCode = SubscribeReturnCodes::Success(QoS::ExactlyOnce);
+    let return_code = SubscribeReturnCodes::Success(QoS::ExactlyOnce);
     let packet = Suback {
         pid: PacketIdentifier(12321),
-        return_codes: vec![returnCode],
+        return_codes: vec![return_code],
     };
     let mut buffer = BytesMut::with_capacity(1024);
     let _ = encoder::encode(&Packet::SubAck(packet), &mut buffer);
