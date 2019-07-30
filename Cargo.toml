@@ -2,7 +2,7 @@ cargo-features = ["edition"]
 
 [package]
 name = "mqttrs"
-version = "0.1.2"
+version = "0.1.3"
 authors = ["00imvj00 <vijaybambhaniya007@gmail.com>"]
 edition = "2018"
 description = "mqttrs is encoding & decoding library for mqtt protocol, it can work with both sync as well as async apps"
