@@ -1,5 +1,5 @@
 use crate::{Packet, MAX_PAYLOAD_SIZE};
-use bytes::{Buf, BufMut, BytesMut};
+use bytes::{BufMut, BytesMut};
 use std::io;
 
 #[allow(dead_code)]
