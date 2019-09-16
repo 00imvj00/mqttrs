@@ -21,6 +21,7 @@ impl Publish {
         } else {
             Some(PacketIdentifier(buffer.split_to(2).into_buf().get_u16_be()))
         };
+
         let payload = buffer.to_vec();
         Ok(Publish {
             dup: header.dup(),

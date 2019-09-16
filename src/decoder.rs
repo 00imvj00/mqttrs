@@ -6,9 +6,10 @@ use std::io;
 #[allow(dead_code)]
 pub fn decode(buffer: &mut BytesMut) -> Result<Option<Packet>, io::Error> {
     if let Some((header, header_size)) = read_header(buffer) {
-        buffer.split_to(header_size);
-        if buffer.len() >= header.len() {
-            let p = read_packet(header, buffer)?;
+        if buffer.len() >= header.len() + header_size {
+            //NOTE: Check if buffer has, header bytes + remaining length bytes in buffer.
+            buffer.split_to(header_size); //NOTE: Remove header bytes from buffer.
+            let p = read_packet(header, buffer)?; //NOTE: Read remaining packet.
             Ok(Some(p))
         } else {
             Ok(None)

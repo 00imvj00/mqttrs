@@ -59,6 +59,7 @@ fn test_publish() {
     let mut buffer = BytesMut::with_capacity(1024);
     let _ = encoder::encode(&Packet::Publish(packet), &mut buffer);
     let decoded = decoder::decode(&mut buffer).unwrap();
+    println!("{:?}", decoded);
     match decoded {
         Some(Packet::Publish(_c)) => {
             assert!(true);
@@ -101,6 +102,7 @@ fn test_pubrel() {
     let mut buffer = BytesMut::with_capacity(1024);
     let _ = encoder::encode(&packet, &mut buffer);
     let decoded = decoder::decode(&mut buffer).unwrap();
+    println!("{:?}", decoded);
     match decoded {
         Some(Packet::Pubrel(_c)) => {
             assert!(true);

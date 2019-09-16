@@ -86,15 +86,18 @@ fn test_disconnect() {
 #[test]
 fn test_publish() {
     let mut data = BytesMut::from(vec![
-        0b00110000, 12, 0x00, 0x03, 'a' as u8, '/' as u8, 'b' as u8, 0x00, 0x10, 'h' as u8,
-        'e' as u8, 'l' as u8, 'l' as u8, 'o' as u8, 0b00111000, 12, 0x00, 0x03, 'a' as u8,
-        '/' as u8, 'b' as u8, 0x00, 0x10, 'h' as u8, 'e' as u8, 'l' as u8, 'l' as u8, 'o' as u8,
+        0b00110000, 10, 0x00, 0x03, 'a' as u8, '/' as u8, 'b' as u8, 'h' as u8, 'e' as u8,
+        'l' as u8, 'l' as u8, 'o' as u8, //
+        0b00111000, 10, 0x00, 0x03, 'a' as u8, '/' as u8, 'b' as u8, 'h' as u8, 'e' as u8,
+        'l' as u8, 'l' as u8, 'o' as u8, //
         0b00111101, 12, 0x00, 0x03, 'a' as u8, '/' as u8, 'b' as u8, 0 as u8, 10 as u8, 'h' as u8,
         'e' as u8, 'l' as u8, 'l' as u8, 'o' as u8,
     ]);
     let d1 = decoder::decode(&mut data).unwrap();
     let d2 = decoder::decode(&mut data).unwrap();
     let d3 = decoder::decode(&mut data).unwrap();
+
+    println!("{:?}", d1);
     match d1 {
         Some(Packet::Publish(p)) => {
             assert_eq!(p.dup, false);
