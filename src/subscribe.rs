@@ -42,7 +42,7 @@ pub struct Unsubscribe {
 
 impl Subscribe {
     pub fn from_buffer(buffer: &mut BytesMut) -> Result<Self, io::Error> {
-        let pid = PacketIdentifier::new(buffer.split_to(2).into_buf().get_u16_be())?;
+        let pid = PacketIdentifier::from_buffer(buffer)?;
         let mut topics: Vec<SubscribeTopic> = Vec::new();
         while buffer.len() != 0 {
             let topic_path = utils::read_string(buffer);
@@ -65,7 +65,7 @@ impl Subscribe {
         encoder::write_length(length, buffer)?;
 
         // Pid
-        buffer.put_u16_be(self.pid.get());
+        self.pid.to_buffer(buffer);
 
         // Topics
         for topic in &self.topics {
@@ -79,7 +79,7 @@ impl Subscribe {
 
 impl Unsubscribe {
     pub fn from_buffer(buffer: &mut BytesMut) -> Result<Self, io::Error> {
-        let pid = PacketIdentifier::new(buffer.split_to(2).into_buf().get_u16_be())?;
+        let pid = PacketIdentifier::from_buffer(buffer)?;
         let mut topics: Vec<String> = Vec::new();
         while buffer.len() != 0 {
             let topic_path = utils::read_string(buffer);
@@ -97,7 +97,7 @@ impl Unsubscribe {
 
         buffer.put(header_u8);
         encoder::write_length(length, buffer)?;
-        buffer.put_u16_be(self.pid.get());
+        self.pid.to_buffer(buffer);
         for topic in&self.topics{
             encoder::write_string(topic.as_ref(), buffer)?;
         }
@@ -107,7 +107,7 @@ impl Unsubscribe {
 
 impl Suback {
     pub fn from_buffer(buffer: &mut BytesMut) -> Result<Self, io::Error> {
-        let pid = PacketIdentifier::new(buffer.split_to(2).into_buf().get_u16_be())?;
+        let pid = PacketIdentifier::from_buffer(buffer)?;
         let mut return_codes: Vec<SubscribeReturnCodes> = Vec::new();
         while buffer.len() != 0 {
             let code = buffer.split_to(1).into_buf().get_u8();
@@ -126,7 +126,7 @@ impl Suback {
 
         buffer.put(header_u8);
         encoder::write_length(length, buffer)?;
-        buffer.put_u16_be(self.pid.get());
+        self.pid.to_buffer(buffer);
         for rc in &self.return_codes {
             buffer.put(rc.to_u8());
         }

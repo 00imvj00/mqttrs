@@ -1,4 +1,4 @@
-use bytes::{Buf, BytesMut, IntoBuf};
+use bytes::{Buf, BufMut, BytesMut, IntoBuf};
 use std::{io, num::NonZeroU16};
 
 /// Packet Identifier, for ack purposes.
@@ -18,6 +18,12 @@ impl PacketIdentifier {
     }
     pub fn get(self) -> u16 {
         self.0.get()
+    }
+    pub(crate) fn from_buffer(buf: &mut BytesMut) -> Result<Self, io::Error> {
+        Self::new(buf.split_to(2).into_buf().get_u16_be())
+    }
+    pub(crate) fn to_buffer(self, buf: &mut BytesMut) {
+        buf.put_u16_be(self.get())
     }
 }
 

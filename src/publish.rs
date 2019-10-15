@@ -1,5 +1,5 @@
 use crate::{encoder, utils, Header, PacketIdentifier, QoS};
-use bytes::{Buf, BufMut, BytesMut, IntoBuf};
+use bytes::{BufMut, BytesMut};
 use std::io;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -19,7 +19,7 @@ impl Publish {
         let pid = if header.qos()? == QoS::AtMostOnce {
             None
         } else {
-            Some(PacketIdentifier::new(buffer.split_to(2).into_buf().get_u16_be())?)
+            Some(PacketIdentifier::from_buffer(buffer)?)
         };
 
         let payload = buffer.to_vec();
@@ -58,7 +58,7 @@ impl Publish {
 
         // Pid
         if self.qos != QoS::AtMostOnce {
-            buffer.put_u16_be(self.pid.unwrap().get());
+            self.pid.unwrap().to_buffer(buffer);
         }
 
         // Payload

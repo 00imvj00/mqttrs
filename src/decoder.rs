@@ -1,6 +1,6 @@
 use crate::MULTIPLIER;
 use crate::*;
-use bytes::{Buf, BytesMut, IntoBuf};
+use bytes::BytesMut;
 use std::io;
 
 #[allow(dead_code)]
@@ -20,46 +20,35 @@ pub fn decode(buffer: &mut BytesMut) -> Result<Option<Packet>, io::Error> {
 }
 
 fn read_packet(header: Header, buffer: &mut BytesMut) -> Result<Packet, io::Error> {
-    let t = header.packet();
-    match t {
-        PacketType::PingReq => Ok(Packet::PingReq),
-        PacketType::PingResp => Ok(Packet::PingResp),
-        PacketType::Disconnect => Ok(Packet::Disconnect),
-        PacketType::Connect => Ok(Packet::Connect(Connect::from_buffer(
-            &mut buffer.split_to(header.len()),
-        )?)),
-        PacketType::Connack => Ok(Packet::Connack(Connack::from_buffer(
-            &mut buffer.split_to(header.len()),
-        )?)),
-        PacketType::Publish => Ok(Packet::Publish(Publish::from_buffer(
+    Ok(match header.packet() {
+        PacketType::PingReq => Packet::PingReq,
+        PacketType::PingResp => Packet::PingResp,
+        PacketType::Disconnect => Packet::Disconnect,
+        PacketType::Connect => {
+            Packet::Connect(Connect::from_buffer(&mut buffer.split_to(header.len()))?)
+        }
+        PacketType::Connack => {
+            Packet::Connack(Connack::from_buffer(&mut buffer.split_to(header.len()))?)
+        }
+        PacketType::Publish => Packet::Publish(Publish::from_buffer(
             &header,
             &mut buffer.split_to(header.len()),
-        )?)),
-        PacketType::Puback => Ok(Packet::Puback(PacketIdentifier::new(
-            buffer.split_to(2).into_buf().get_u16_be(),
-        )?)),
-        PacketType::Pubrec => Ok(Packet::Pubrec(PacketIdentifier::new(
-            buffer.split_to(2).into_buf().get_u16_be(),
-        )?)),
-        PacketType::Pubrel => Ok(Packet::Pubrel(PacketIdentifier::new(
-            buffer.split_to(2).into_buf().get_u16_be(),
-        )?)),
-        PacketType::PubComp => Ok(Packet::PubComp(PacketIdentifier::new(
-            buffer.split_to(2).into_buf().get_u16_be(),
-        )?)),
-        PacketType::Subscribe => Ok(Packet::Subscribe(Subscribe::from_buffer(
+        )?),
+        PacketType::Puback => Packet::Puback(PacketIdentifier::from_buffer(buffer)?),
+        PacketType::Pubrec => Packet::Pubrec(PacketIdentifier::from_buffer(buffer)?),
+        PacketType::Pubrel => Packet::Pubrel(PacketIdentifier::from_buffer(buffer)?),
+        PacketType::PubComp => Packet::PubComp(PacketIdentifier::from_buffer(buffer)?),
+        PacketType::Subscribe => {
+            Packet::Subscribe(Subscribe::from_buffer(&mut buffer.split_to(header.len()))?)
+        }
+        PacketType::SubAck => {
+            Packet::SubAck(Suback::from_buffer(&mut buffer.split_to(header.len()))?)
+        }
+        PacketType::UnSubscribe => Packet::UnSubscribe(Unsubscribe::from_buffer(
             &mut buffer.split_to(header.len()),
-        )?)),
-        PacketType::SubAck => Ok(Packet::SubAck(Suback::from_buffer(
-            &mut buffer.split_to(header.len()),
-        )?)),
-        PacketType::UnSubscribe => Ok(Packet::UnSubscribe(Unsubscribe::from_buffer(
-            &mut buffer.split_to(header.len()),
-        )?)),
-        PacketType::UnSubAck => Ok(Packet::UnSubAck(PacketIdentifier::new(
-            buffer.split_to(2).into_buf().get_u16_be(),
-        )?)),
-    }
+        )?),
+        PacketType::UnSubAck => Packet::UnSubAck(PacketIdentifier::from_buffer(buffer)?),
+    })
 }
 /* This will read the header of the stream */
 fn read_header(buffer: &mut BytesMut) -> Option<(Header, usize)> {
