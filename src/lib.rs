@@ -1,5 +1,7 @@
 mod connect;
+#[cfg(test)]
 mod decoder_test;
+#[cfg(test)]
 mod encoder_test;
 mod header;
 mod packet;
