@@ -55,20 +55,19 @@ impl Subscribe {
 
     pub fn to_buffer(&self, buffer: &mut BytesMut) -> Result<(), io::Error> {
         let header_u8: u8 = 0b10000010;
+        buffer.put(header_u8);
 
-        let mut length = 0;
-        length += 2;
-
+        // Length: pid(2) + topic.for_each(2+len + qos(1))
+        let mut length = 2;
         for topic in &self.topics {
             length += topic.topic_path.len() + 2 + 1;
         }
-
-        let PacketIdentifier(pid) = self.pid;
-
-        buffer.put(header_u8);
         encoder::write_length(length, buffer)?;
-        buffer.put_u16_be(pid as u16);
 
+        // Pid
+        buffer.put_u16_be(self.pid.0);
+
+        // Topics
         for topic in &self.topics {
             encoder::write_string(topic.topic_path.as_ref(), buffer)?;
             buffer.put(topic.qos.to_u8());
