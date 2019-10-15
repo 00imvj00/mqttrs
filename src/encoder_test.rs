@@ -53,7 +53,7 @@ fn test_publish() {
         qos: QoS::ExactlyOnce,
         retain: true,
         topic_name: "asdf".to_string(),
-        pid: Some(PacketIdentifier(10)),
+        pid: Some(PacketIdentifier::new(10).unwrap()),
         payload: vec!['h' as u8, 'e' as u8, 'l' as u8, 'l' as u8, 'o' as u8],
     };
     let mut buffer = BytesMut::with_capacity(1024);
@@ -70,7 +70,7 @@ fn test_publish() {
 
 #[test]
 fn test_puback() {
-    let packet = Packet::Puback(PacketIdentifier(19));
+    let packet = Packet::Puback(PacketIdentifier::new(19).unwrap());
     let mut buffer = BytesMut::with_capacity(1024);
     let _ = encoder::encode(&packet, &mut buffer);
     let decoded = decoder::decode(&mut buffer).unwrap();
@@ -84,7 +84,7 @@ fn test_puback() {
 
 #[test]
 fn test_pubrec() {
-    let packet = Packet::Pubrec(PacketIdentifier(19));
+    let packet = Packet::Pubrec(PacketIdentifier::new(19).unwrap());
     let mut buffer = BytesMut::with_capacity(1024);
     let _ = encoder::encode(&packet, &mut buffer);
     let decoded = decoder::decode(&mut buffer).unwrap();
@@ -98,7 +98,7 @@ fn test_pubrec() {
 
 #[test]
 fn test_pubrel() {
-    let packet = Packet::Pubrel(PacketIdentifier(19));
+    let packet = Packet::Pubrel(PacketIdentifier::new(19).unwrap());
     let mut buffer = BytesMut::with_capacity(1024);
     let _ = encoder::encode(&packet, &mut buffer);
     let decoded = decoder::decode(&mut buffer).unwrap();
@@ -113,7 +113,7 @@ fn test_pubrel() {
 
 #[test]
 fn test_pubcomp() {
-    let packet = Packet::PubComp(PacketIdentifier(19));
+    let packet = Packet::PubComp(PacketIdentifier::new(19).unwrap());
     let mut buffer = BytesMut::with_capacity(1024);
     let _ = encoder::encode(&packet, &mut buffer);
     let decoded = decoder::decode(&mut buffer).unwrap();
@@ -132,7 +132,7 @@ fn test_subscribe() {
         qos: QoS::ExactlyOnce,
     };
     let packet = Subscribe {
-        pid: PacketIdentifier(345),
+        pid: PacketIdentifier::new(345).unwrap(),
         topics: vec![stopic],
     };
     let mut buffer = BytesMut::with_capacity(1024);
@@ -150,16 +150,14 @@ fn test_subscribe() {
 fn test_suback() {
     let return_code = SubscribeReturnCodes::Success(QoS::ExactlyOnce);
     let packet = Suback {
-        pid: PacketIdentifier(12321),
+        pid: PacketIdentifier::new(12321).unwrap(),
         return_codes: vec![return_code],
     };
     let mut buffer = BytesMut::with_capacity(1024);
     let _ = encoder::encode(&Packet::SubAck(packet), &mut buffer);
     let decoded = decoder::decode(&mut buffer).unwrap();
     match decoded {
-        Some(Packet::SubAck(_c)) => {
-            assert!(true);
-        }
+        Some(Packet::SubAck(_c)) => assert!(true),
         _ => assert!(false),
     }
 }
@@ -167,30 +165,26 @@ fn test_suback() {
 #[test]
 fn test_unsubscribe() {
     let packet = Unsubscribe {
-        pid: PacketIdentifier(12321),
+        pid: PacketIdentifier::new(12321).unwrap(),
         topics: vec!["a/b".to_string()],
     };
     let mut buffer = BytesMut::with_capacity(1024);
     let _ = encoder::encode(&Packet::UnSubscribe(packet), &mut buffer);
     let decoded = decoder::decode(&mut buffer).unwrap();
     match decoded {
-        Some(Packet::UnSubscribe(_c)) => {
-            assert!(true);
-        }
+        Some(Packet::UnSubscribe(_c)) => assert!(true),
         _ => assert!(false),
     }
 }
 
 #[test]
 fn test_unsuback() {
-    let packet = Packet::UnSubAck(PacketIdentifier(19));
+    let packet = Packet::UnSubAck(PacketIdentifier::new(19).unwrap());
     let mut buffer = BytesMut::with_capacity(1024);
     let _ = encoder::encode(&packet, &mut buffer);
     let decoded = decoder::decode(&mut buffer).unwrap();
     match decoded {
-        Some(Packet::UnSubAck(_c)) => {
-            assert!(true);
-        }
+        Some(Packet::UnSubAck(_c)) => assert!(true),
         _ => assert!(false),
     }
 }
@@ -201,9 +195,7 @@ fn test_ping_req() {
     let _ = encoder::encode(&Packet::PingReq, &mut buffer);
     let decoded = decoder::decode(&mut buffer).unwrap();
     match decoded {
-        Some(Packet::PingReq) => {
-            assert!(true);
-        }
+        Some(Packet::PingReq) => assert!(true),
         _ => assert!(false),
     }
 }
@@ -214,9 +206,7 @@ fn test_ping_resp() {
     let _ = encoder::encode(&Packet::PingResp, &mut buffer);
     let decoded = decoder::decode(&mut buffer).unwrap();
     match decoded {
-        Some(Packet::PingResp) => {
-            assert!(true);
-        }
+        Some(Packet::PingResp) => assert!(true),
         _ => assert!(false),
     }
 }
@@ -227,9 +217,7 @@ fn test_disconnect() {
     let _ = encoder::encode(&Packet::Disconnect, &mut buffer);
     let decoded = decoder::decode(&mut buffer).unwrap();
     match decoded {
-        Some(Packet::Disconnect) => {
-            assert!(true);
-        }
+        Some(Packet::Disconnect) => assert!(true),
         _ => assert!(false),
     }
 }

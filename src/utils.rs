@@ -1,11 +1,25 @@
 use bytes::{Buf, BytesMut, IntoBuf};
-use std::io;
+use std::{io, num::NonZeroU16};
 
 /// Packet Identifier, for ack purposes.
 ///
 /// Note that the spec disallows a pid of 0 ([MQTT-2.3.1-1] for mqtt3, [MQTT-2.2.1-3] for mqtt5).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct PacketIdentifier(pub u16);
+pub struct PacketIdentifier(NonZeroU16);
+impl PacketIdentifier {
+    pub fn new(u: u16) -> Result<Self, io::Error> {
+        match NonZeroU16::new(u) {
+            Some(nz) => Ok(PacketIdentifier(nz)),
+            None => Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "Zero PacketIdentifier",
+            )),
+        }
+    }
+    pub fn get(self) -> u16 {
+        self.0.get()
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Protocol {

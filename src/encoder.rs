@@ -13,7 +13,7 @@ pub fn encode(packet: &Packet, buffer: &mut BytesMut) -> Result<(), io::Error> {
             let length = 0b00000010 as u8;
             buffer.put(header_u8);
             buffer.put(length);
-            buffer.put_u16_be(pid.0);
+            buffer.put_u16_be(pid.get());
             Ok(())
         }
         Packet::Pubrec(pid) => {
@@ -21,7 +21,7 @@ pub fn encode(packet: &Packet, buffer: &mut BytesMut) -> Result<(), io::Error> {
             let length = 0b00000010 as u8;
             buffer.put(header_u8);
             buffer.put(length);
-            buffer.put_u16_be(pid.0);
+            buffer.put_u16_be(pid.get());
             Ok(())
         }
         Packet::Pubrel(pid) => {
@@ -29,7 +29,7 @@ pub fn encode(packet: &Packet, buffer: &mut BytesMut) -> Result<(), io::Error> {
             let length = 0b00000010 as u8;
             buffer.put(header_u8);
             buffer.put(length);
-            buffer.put_u16_be(pid.0);
+            buffer.put_u16_be(pid.get());
             Ok(())
         }
         Packet::PubComp(pid) => {
@@ -37,7 +37,7 @@ pub fn encode(packet: &Packet, buffer: &mut BytesMut) -> Result<(), io::Error> {
             let length = 0b00000010 as u8;
             buffer.put(header_u8);
             buffer.put(length);
-            buffer.put_u16_be(pid.0);
+            buffer.put_u16_be(pid.get());
             Ok(())
         }
         Packet::Subscribe(subscribe) => subscribe.to_buffer(buffer),
@@ -48,7 +48,7 @@ pub fn encode(packet: &Packet, buffer: &mut BytesMut) -> Result<(), io::Error> {
             let length = 0b00000010 as u8;
             buffer.put(header_u8);
             buffer.put(length);
-            buffer.put_u16_be(pid.0);
+            buffer.put_u16_be(pid.get());
             Ok(())
         }
         Packet::PingReq => {

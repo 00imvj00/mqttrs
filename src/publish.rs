@@ -19,7 +19,7 @@ impl Publish {
         let pid = if header.qos()? == QoS::AtMostOnce {
             None
         } else {
-            Some(PacketIdentifier(buffer.split_to(2).into_buf().get_u16_be()))
+            Some(PacketIdentifier::new(buffer.split_to(2).into_buf().get_u16_be())?)
         };
 
         let payload = buffer.to_vec();
@@ -58,7 +58,7 @@ impl Publish {
 
         // Pid
         if self.qos != QoS::AtMostOnce {
-            buffer.put_u16_be(self.pid.unwrap().0 as u16);
+            buffer.put_u16_be(self.pid.unwrap().get());
         }
 
         // Payload

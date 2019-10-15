@@ -124,7 +124,7 @@ fn test_publish() {
             assert_eq!(p.retain, true);
             assert_eq!(p.qos, QoS::ExactlyOnce);
             assert_eq!(p.topic_name, "a/b");
-            assert_eq!(p.pid.unwrap(), PacketIdentifier(10));
+            assert_eq!(p.pid, Some(PacketIdentifier::new(10).unwrap()));
             assert_eq!(String::from_utf8(p.payload).unwrap(), "hello");
         }
         _ => panic!("Should not be None"),
@@ -136,11 +136,9 @@ fn test_pub_ack() {
     let mut data = BytesMut::from(vec![0b01000000, 0b00000010, 0 as u8, 10 as u8]);
     let d = decoder::decode(&mut data).unwrap();
     match d {
-        Some(Packet::Puback(a)) => {
-            assert_eq!(a.0, 10);
-        }
+        Some(Packet::Puback(a)) => assert_eq!(a.get(), 10),
         _ => panic!(),
-    }
+    };
 }
 
 #[test]
@@ -148,11 +146,9 @@ fn test_pub_rec() {
     let mut data = BytesMut::from(vec![0b01010000, 0b00000010, 0 as u8, 10 as u8]);
     let d = decoder::decode(&mut data).unwrap();
     match d {
-        Some(Packet::Pubrec(a)) => {
-            assert_eq!(a.0, 10);
-        }
+        Some(Packet::Pubrec(a)) => assert_eq!(a.get(), 10),
         _ => panic!(),
-    }
+    };
 }
 
 #[test]
@@ -160,11 +156,9 @@ fn test_pub_rel() {
     let mut data = BytesMut::from(vec![0b01100010, 0b00000010, 0 as u8, 10 as u8]);
     let d = decoder::decode(&mut data).unwrap();
     match d {
-        Some(Packet::Pubrel(a)) => {
-            assert_eq!(a.0, 10);
-        }
+        Some(Packet::Pubrel(a)) => assert_eq!(a.get(), 10),
         _ => panic!(),
-    }
+    };
 }
 
 #[test]
@@ -172,11 +166,9 @@ fn test_pub_comp() {
     let mut data = BytesMut::from(vec![0b01110000, 0b00000010, 0 as u8, 10 as u8]);
     let d = decoder::decode(&mut data).unwrap();
     match d {
-        Some(Packet::PubComp(a)) => {
-            assert_eq!(a.0, 10);
-        }
+        Some(Packet::PubComp(a)) => assert_eq!(a.get(), 10),
         _ => panic!(),
-    }
+    };
 }
 
 #[test]
@@ -188,7 +180,7 @@ fn test_subscribe() {
     let d = decoder::decode(&mut data).unwrap();
     match d {
         Some(Packet::Subscribe(s)) => {
-            assert_eq!(s.pid.0, 10);
+            assert_eq!(s.pid.get(), 10);
             let t = SubscribeTopic {
                 topic_path: "a/b".to_string(),
                 qos: QoS::AtMostOnce,
@@ -206,7 +198,7 @@ fn test_suback() {
     let d = decoder::decode(&mut data).unwrap();
     match d {
         Some(Packet::SubAck(s)) => {
-            assert_eq!(s.pid.0, 10);
+            assert_eq!(s.pid.get(), 10);
             assert_eq!(
                 s.return_codes[0],
                 SubscribeReturnCodes::Success(QoS::ExactlyOnce)
@@ -224,7 +216,7 @@ fn test_unsubscribe() {
     let d = decoder::decode(&mut data).unwrap();
     match d {
         Some(Packet::UnSubscribe(a)) => {
-            assert_eq!(a.pid.0, 10);
+            assert_eq!(a.pid.get(), 10);
             assert_eq!(a.topics[0], 'a'.to_string());
         }
         _ => panic!(),
@@ -237,7 +229,7 @@ fn test_unsub_ack() {
     let d = decoder::decode(&mut data).unwrap();
     match d {
         Some(Packet::UnSubAck(p)) => {
-            assert_eq!(p.0, 10);
+            assert_eq!(p.get(), 10);
         }
         _ => panic!(),
     }

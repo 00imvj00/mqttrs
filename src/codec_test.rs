@@ -14,6 +14,11 @@ prop_compose! {
     }
 }
 prop_compose! {
+    fn stg_pid()(pid in 1..std::u16::MAX) -> PacketIdentifier {
+        PacketIdentifier::new(pid).unwrap()
+    }
+}
+prop_compose! {
     fn stg_subtopic()(topic_path in stg_topic(), qos in stg_qos()) -> SubscribeTopic {
         SubscribeTopic { topic_path, qos }
     }
@@ -58,7 +63,7 @@ prop_compose! {
 prop_compose! {
     fn stg_publish()(dup in bool::ANY,
                      qos in 0u8..3,
-                     pid in u16::ANY,
+                     pid in stg_pid(),
                      retain in bool::ANY,
                      topic_name in stg_topic(),
                      payload in vec(0u8..255u8, 1..300)) -> Packet {
@@ -66,48 +71,48 @@ prop_compose! {
                                 qos: QoS::from_u8(qos).unwrap(),
                                 retain,
                                 topic_name,
-                                pid: if qos == 0 { None } else { Some(PacketIdentifier(pid)) },
+                                pid: if qos == 0 { None } else { Some(pid) },
                                 payload})
     }
 }
 prop_compose! {
-    fn stg_puback()(pid in u16::ANY) -> Packet {
-        Packet::Puback(PacketIdentifier(pid))
+    fn stg_puback()(pid in stg_pid()) -> Packet {
+        Packet::Puback(pid)
     }
 }
 prop_compose! {
-    fn stg_pubrec()(pid in u16::ANY) -> Packet {
-        Packet::Pubrec(PacketIdentifier(pid))
+    fn stg_pubrec()(pid in stg_pid()) -> Packet {
+        Packet::Pubrec(pid)
     }
 }
 prop_compose! {
-    fn stg_pubrel()(pid in u16::ANY) -> Packet {
-        Packet::Puback(PacketIdentifier(pid))
+    fn stg_pubrel()(pid in stg_pid()) -> Packet {
+        Packet::Puback(pid)
     }
 }
 prop_compose! {
-    fn stg_pubcomp()(pid in u16::ANY) -> Packet {
-        Packet::PubComp(PacketIdentifier(pid))
+    fn stg_pubcomp()(pid in stg_pid()) -> Packet {
+        Packet::PubComp(pid)
     }
 }
 prop_compose! {
-    fn stg_subscribe()(pid in u16::ANY, topics in vec(stg_subtopic(), 0..20)) -> Packet {
-        Packet::Subscribe(Subscribe{pid: PacketIdentifier(pid), topics})
+    fn stg_subscribe()(pid in stg_pid(), topics in vec(stg_subtopic(), 0..20)) -> Packet {
+        Packet::Subscribe(Subscribe{pid: pid, topics})
     }
 }
 prop_compose! {
-    fn stg_suback()(pid in u16::ANY, return_codes in vec(stg_subretcode(), 0..300)) -> Packet {
-        Packet::SubAck(Suback{pid: PacketIdentifier(pid), return_codes})
+    fn stg_suback()(pid in stg_pid(), return_codes in vec(stg_subretcode(), 0..300)) -> Packet {
+        Packet::SubAck(Suback{pid: pid, return_codes})
     }
 }
 prop_compose! {
-    fn stg_unsubscribe()(pid in u16::ANY, topics in vec(stg_topic(), 0..20)) -> Packet {
-        Packet::UnSubscribe(Unsubscribe{pid:PacketIdentifier(pid), topics})
+    fn stg_unsubscribe()(pid in stg_pid(), topics in vec(stg_topic(), 0..20)) -> Packet {
+        Packet::UnSubscribe(Unsubscribe{pid:pid, topics})
     }
 }
 prop_compose! {
-    fn stg_unsuback()(pid in u16::ANY) -> Packet {
-        Packet::UnSubAck(PacketIdentifier(pid))
+    fn stg_unsuback()(pid in stg_pid()) -> Packet {
+        Packet::UnSubAck(pid)
     }
 }
 prop_compose! {

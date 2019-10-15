@@ -35,18 +35,18 @@ fn read_packet(header: Header, buffer: &mut BytesMut) -> Result<Packet, io::Erro
             &header,
             &mut buffer.split_to(header.len()),
         )?)),
-        PacketType::Puback => Ok(Packet::Puback(PacketIdentifier(
+        PacketType::Puback => Ok(Packet::Puback(PacketIdentifier::new(
             buffer.split_to(2).into_buf().get_u16_be(),
-        ))),
-        PacketType::Pubrec => Ok(Packet::Pubrec(PacketIdentifier(
+        )?)),
+        PacketType::Pubrec => Ok(Packet::Pubrec(PacketIdentifier::new(
             buffer.split_to(2).into_buf().get_u16_be(),
-        ))),
-        PacketType::Pubrel => Ok(Packet::Pubrel(PacketIdentifier(
+        )?)),
+        PacketType::Pubrel => Ok(Packet::Pubrel(PacketIdentifier::new(
             buffer.split_to(2).into_buf().get_u16_be(),
-        ))),
-        PacketType::PubComp => Ok(Packet::PubComp(PacketIdentifier(
+        )?)),
+        PacketType::PubComp => Ok(Packet::PubComp(PacketIdentifier::new(
             buffer.split_to(2).into_buf().get_u16_be(),
-        ))),
+        )?)),
         PacketType::Subscribe => Ok(Packet::Subscribe(Subscribe::from_buffer(
             &mut buffer.split_to(header.len()),
         )?)),
@@ -56,9 +56,9 @@ fn read_packet(header: Header, buffer: &mut BytesMut) -> Result<Packet, io::Erro
         PacketType::UnSubscribe => Ok(Packet::UnSubscribe(Unsubscribe::from_buffer(
             &mut buffer.split_to(header.len()),
         )?)),
-        PacketType::UnSubAck => Ok(Packet::UnSubAck(PacketIdentifier(
+        PacketType::UnSubAck => Ok(Packet::UnSubAck(PacketIdentifier::new(
             buffer.split_to(2).into_buf().get_u16_be(),
-        ))),
+        )?)),
     }
 }
 /* This will read the header of the stream */

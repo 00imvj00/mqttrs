@@ -42,7 +42,7 @@ pub struct Unsubscribe {
 
 impl Subscribe {
     pub fn from_buffer(buffer: &mut BytesMut) -> Result<Self, io::Error> {
-        let pid = PacketIdentifier(buffer.split_to(2).into_buf().get_u16_be());
+        let pid = PacketIdentifier::new(buffer.split_to(2).into_buf().get_u16_be())?;
         let mut topics: Vec<SubscribeTopic> = Vec::new();
         while buffer.len() != 0 {
             let topic_path = utils::read_string(buffer);
@@ -65,7 +65,7 @@ impl Subscribe {
         encoder::write_length(length, buffer)?;
 
         // Pid
-        buffer.put_u16_be(self.pid.0);
+        buffer.put_u16_be(self.pid.get());
 
         // Topics
         for topic in &self.topics {
@@ -79,7 +79,7 @@ impl Subscribe {
 
 impl Unsubscribe {
     pub fn from_buffer(buffer: &mut BytesMut) -> Result<Self, io::Error> {
-        let pid = PacketIdentifier(buffer.split_to(2).into_buf().get_u16_be());
+        let pid = PacketIdentifier::new(buffer.split_to(2).into_buf().get_u16_be())?;
         let mut topics: Vec<String> = Vec::new();
         while buffer.len() != 0 {
             let topic_path = utils::read_string(buffer);
@@ -90,7 +90,6 @@ impl Unsubscribe {
 
     pub fn to_buffer(&self, buffer: &mut  BytesMut) -> Result<(), io::Error>{
         let header_u8 : u8 = 0b10100010;
-        let PacketIdentifier(pid) = self.pid;
         let mut length = 2;
         for topic in &self.topics{
             length += 2 + topic.len();
@@ -98,7 +97,7 @@ impl Unsubscribe {
 
         buffer.put(header_u8);
         encoder::write_length(length, buffer)?;
-        buffer.put_u16_be(pid as u16);
+        buffer.put_u16_be(self.pid.get());
         for topic in&self.topics{
             encoder::write_string(topic.as_ref(), buffer)?;
         }
@@ -108,7 +107,7 @@ impl Unsubscribe {
 
 impl Suback {
     pub fn from_buffer(buffer: &mut BytesMut) -> Result<Self, io::Error> {
-        let pid = PacketIdentifier(buffer.split_to(2).into_buf().get_u16_be());
+        let pid = PacketIdentifier::new(buffer.split_to(2).into_buf().get_u16_be())?;
         let mut return_codes: Vec<SubscribeReturnCodes> = Vec::new();
         while buffer.len() != 0 {
             let code = buffer.split_to(1).into_buf().get_u8();
@@ -123,12 +122,11 @@ impl Suback {
     }
     pub fn to_buffer(&self, buffer: &mut BytesMut) -> Result<(), io::Error> {
         let header_u8: u8 = 0b10010000;
-        let PacketIdentifier(pid) = self.pid;
         let length = 2 + self.return_codes.len();
 
         buffer.put(header_u8);
         encoder::write_length(length, buffer)?;
-        buffer.put_u16_be(pid);
+        buffer.put_u16_be(self.pid.get());
         for rc in &self.return_codes {
             buffer.put(rc.to_u8());
         }
