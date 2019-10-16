@@ -20,7 +20,7 @@ pub struct Connack {
 }
 
 impl Connect {
-    pub fn from_buffer(buffer: &mut BytesMut) -> Result<Self, io::Error> {
+    pub(crate) fn from_buffer(buffer: &mut BytesMut) -> Result<Self, io::Error> {
         let protocol_name = read_string(buffer);
         let protocol_level = buffer.split_to(1).into_buf().get_u8();
         let protocol = Protocol::new(&protocol_name, protocol_level).unwrap();
@@ -68,7 +68,7 @@ impl Connect {
             clean_session,
         })
     }
-    pub fn to_buffer(&self, buffer: &mut BytesMut) -> Result<(), io::Error> {
+    pub(crate) fn to_buffer(&self, buffer: &mut BytesMut) -> Result<(), io::Error> {
         let header_u8: u8 = 0b00010000;
         let mut length: usize = 6 + 1 + 1; //NOTE: protocol_name(6) + protocol_level(1) + flags(1);
         let mut connect_flags: u8 = 0b00000000;
@@ -124,7 +124,7 @@ impl Connect {
 }
 
 impl Connack {
-    pub fn from_buffer(buffer: &mut BytesMut) -> Result<Self, io::Error> {
+    pub(crate) fn from_buffer(buffer: &mut BytesMut) -> Result<Self, io::Error> {
         let flags = buffer.split_to(1).into_buf().get_u8();
         let return_code = buffer.split_to(1).into_buf().get_u8();
         Ok(Connack {
@@ -132,7 +132,7 @@ impl Connack {
             code: ConnectReturnCode::from_u8(return_code)?,
         })
     }
-    pub fn to_buffer(&self, buffer: &mut BytesMut) -> Result<(), io::Error> {
+    pub(crate) fn to_buffer(&self, buffer: &mut BytesMut) -> Result<(), io::Error> {
         let header_u8 = 0b00100000 as u8;
         let length = 2 as u8;
         let mut flags = 0b00000000 as u8;

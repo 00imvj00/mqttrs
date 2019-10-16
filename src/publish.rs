@@ -1,4 +1,4 @@
-use crate::{decoder::*, encoder::*, Header, PacketIdentifier, QoS, QosPid};
+use crate::{decoder::*, encoder::*, header::Header, PacketIdentifier, QoS, QosPid};
 use bytes::{BufMut, BytesMut};
 use std::io;
 
@@ -12,7 +12,7 @@ pub struct Publish {
 }
 
 impl Publish {
-    pub fn from_buffer(header: &Header, buffer: &mut BytesMut) -> Result<Self, io::Error> {
+    pub(crate) fn from_buffer(header: &Header, buffer: &mut BytesMut) -> Result<Self, io::Error> {
         let topic_name = read_string(buffer);
 
         let qospid = match header.qos()? {
@@ -30,7 +30,7 @@ impl Publish {
             payload,
         })
     }
-    pub fn to_buffer(&self, buffer: &mut BytesMut) -> Result<(), io::Error> {
+    pub(crate) fn to_buffer(&self, buffer: &mut BytesMut) -> Result<(), io::Error> {
         // Header
         let mut header_u8: u8 = match self.qospid {
             QosPid::AtMostOnce => 0b00110000,

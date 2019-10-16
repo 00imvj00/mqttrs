@@ -1,4 +1,6 @@
 mod connect;
+mod decoder;
+mod encoder;
 mod header;
 mod packet;
 mod publish;
@@ -12,13 +14,11 @@ mod decoder_test;
 #[cfg(test)]
 mod encoder_test;
 
-pub mod decoder;
-pub mod encoder;
-
 pub use crate::{
     connect::{Connack, Connect},
-    header::{Header, PacketType},
-    packet::Packet,
+    decoder::decode,
+    encoder::encode,
+    packet::{Packet, PacketType},
     publish::Publish,
     subscribe::{Suback, Subscribe, SubscribeReturnCodes, SubscribeTopic, Unsubscribe},
     utils::{ConnectReturnCode, LastWill, PacketIdentifier, Protocol, QoS, QosPid},

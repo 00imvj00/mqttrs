@@ -2,6 +2,9 @@ use crate::{Packet, MAX_PAYLOAD_SIZE};
 use bytes::{BufMut, BytesMut};
 use std::io;
 
+/// Encode a [Packet] enum into a buffer.
+///
+/// [Packet]: ../enum.Packet.html
 pub fn encode(packet: &Packet, buffer: &mut BytesMut) -> Result<(), io::Error> {
     match packet {
         Packet::Connect(connect) => connect.to_buffer(buffer),
@@ -68,7 +71,7 @@ pub fn encode(packet: &Packet, buffer: &mut BytesMut) -> Result<(), io::Error> {
     }
 }
 
-pub fn write_length(len: usize, buffer: &mut BytesMut) -> Result<(), io::Error> {
+pub(crate) fn write_length(len: usize, buffer: &mut BytesMut) -> Result<(), io::Error> {
     if len > MAX_PAYLOAD_SIZE {
         return Err(io::Error::new(
             io::ErrorKind::PermissionDenied,
@@ -89,12 +92,12 @@ pub fn write_length(len: usize, buffer: &mut BytesMut) -> Result<(), io::Error> 
     Ok(())
 }
 
-pub fn write_bytes(bytes: &[u8], buffer: &mut BytesMut) -> Result<(), io::Error> {
+pub(crate) fn write_bytes(bytes: &[u8], buffer: &mut BytesMut) -> Result<(), io::Error> {
     buffer.put_u16_be(bytes.len() as u16);
     buffer.put_slice(bytes);
     Ok(())
 }
 
-pub fn write_string(string: &str, buffer: &mut BytesMut) -> Result<(), io::Error> {
+pub(crate) fn write_string(string: &str, buffer: &mut BytesMut) -> Result<(), io::Error> {
     write_bytes(string.as_bytes(), buffer)
 }

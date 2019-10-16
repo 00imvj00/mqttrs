@@ -3,7 +3,10 @@ use std::{io, num::NonZeroU16};
 
 /// Packet Identifier, for ack purposes.
 ///
-/// Note that the spec disallows a pid of 0 ([MQTT-2.3.1-1] for mqtt3, [MQTT-2.2.1-3] for mqtt5).
+/// The spec ([MQTT-2.3.1-1], [MQTT-2.2.1-3]) disallows a pid of 0.
+///
+/// [MQTT-2.3.1-1]: https://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718025
+/// [MQTT-2.2.1-3]: https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901026
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct PacketIdentifier(NonZeroU16);
 impl PacketIdentifier {
@@ -54,7 +57,7 @@ impl QoS {
         }
     }
     #[inline]
-    pub fn from_hd(hd: u8) -> Result<QoS, io::Error> {
+    pub(crate) fn from_hd(hd: u8) -> Result<QoS, io::Error> {
         Self::from_u8((hd & 0b110) >> 1)
     }
 }
@@ -109,14 +112,14 @@ impl Protocol {
         }
     }
 
-    pub fn name(&self) -> &'static str {
+    pub(crate) fn name(&self) -> &'static str {
         match self {
             &Protocol::MQIsdp(_) => "MQIsdp",
             &Protocol::MQTT(_) => "MQTT",
         }
     }
 
-    pub fn level(&self) -> u8 {
+    pub(crate) fn level(&self) -> u8 {
         match self {
             &Protocol::MQIsdp(level) => level,
             &Protocol::MQTT(level) => level,

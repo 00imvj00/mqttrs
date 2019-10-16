@@ -14,7 +14,7 @@ pub enum SubscribeReturnCodes {
     Failure,
 }
 impl SubscribeReturnCodes {
-    pub fn to_u8(&self) -> u8 {
+    pub(crate) fn to_u8(&self) -> u8 {
         match *self {
             SubscribeReturnCodes::Failure => 0x80,
             SubscribeReturnCodes::Success(qos) => qos.to_u8(),
@@ -41,7 +41,7 @@ pub struct Unsubscribe {
 }
 
 impl Subscribe {
-    pub fn from_buffer(buffer: &mut BytesMut) -> Result<Self, io::Error> {
+    pub(crate) fn from_buffer(buffer: &mut BytesMut) -> Result<Self, io::Error> {
         let pid = PacketIdentifier::from_buffer(buffer)?;
         let mut topics: Vec<SubscribeTopic> = Vec::new();
         while buffer.len() != 0 {
@@ -53,7 +53,7 @@ impl Subscribe {
         Ok(Subscribe { pid, topics })
     }
 
-    pub fn to_buffer(&self, buffer: &mut BytesMut) -> Result<(), io::Error> {
+    pub(crate) fn to_buffer(&self, buffer: &mut BytesMut) -> Result<(), io::Error> {
         let header_u8: u8 = 0b10000010;
         buffer.put(header_u8);
 
@@ -78,7 +78,7 @@ impl Subscribe {
 }
 
 impl Unsubscribe {
-    pub fn from_buffer(buffer: &mut BytesMut) -> Result<Self, io::Error> {
+    pub(crate) fn from_buffer(buffer: &mut BytesMut) -> Result<Self, io::Error> {
         let pid = PacketIdentifier::from_buffer(buffer)?;
         let mut topics: Vec<String> = Vec::new();
         while buffer.len() != 0 {
@@ -88,7 +88,7 @@ impl Unsubscribe {
         Ok(Unsubscribe { pid, topics })
     }
 
-    pub fn to_buffer(&self, buffer: &mut  BytesMut) -> Result<(), io::Error>{
+    pub(crate) fn to_buffer(&self, buffer: &mut  BytesMut) -> Result<(), io::Error>{
         let header_u8 : u8 = 0b10100010;
         let mut length = 2;
         for topic in &self.topics{
@@ -106,7 +106,7 @@ impl Unsubscribe {
 }
 
 impl Suback {
-    pub fn from_buffer(buffer: &mut BytesMut) -> Result<Self, io::Error> {
+    pub(crate) fn from_buffer(buffer: &mut BytesMut) -> Result<Self, io::Error> {
         let pid = PacketIdentifier::from_buffer(buffer)?;
         let mut return_codes: Vec<SubscribeReturnCodes> = Vec::new();
         while buffer.len() != 0 {
@@ -120,7 +120,7 @@ impl Suback {
         }
         Ok(Suback { return_codes, pid })
     }
-    pub fn to_buffer(&self, buffer: &mut BytesMut) -> Result<(), io::Error> {
+    pub(crate) fn to_buffer(&self, buffer: &mut BytesMut) -> Result<(), io::Error> {
         let header_u8: u8 = 0b10010000;
         let length = 2 + self.return_codes.len();
 

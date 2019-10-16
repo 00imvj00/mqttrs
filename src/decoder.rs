@@ -1,8 +1,10 @@
-use crate::MULTIPLIER;
-use crate::*;
+use crate::{header::Header, *};
 use bytes::{Buf, BytesMut, IntoBuf};
 use std::io;
 
+/// Decode network bytes into a [Packet] enum.
+///
+/// [Packet]: ../enum.Packet.html
 pub fn decode(buffer: &mut BytesMut) -> Result<Option<Packet>, io::Error> {
     if let Some((header, header_size)) = read_header(buffer) {
         if buffer.len() >= header.len() + header_size {
@@ -87,12 +89,12 @@ fn read_length(buffer: &BytesMut, mut pos: usize) -> Option<(usize, usize)> {
 }
 
 // FIXME: Result<String,...>
-pub fn read_string(buffer: &mut BytesMut) -> String {
+pub(crate) fn read_string(buffer: &mut BytesMut) -> String {
     String::from_utf8(read_bytes(buffer)).expect("Non-utf8 string")
 }
 
 // FIXME: This can panic if the packet is malformed
-pub fn read_bytes(buffer: &mut BytesMut) -> Vec<u8> {
+pub(crate) fn read_bytes(buffer: &mut BytesMut) -> Vec<u8> {
     let length = buffer.split_to(2).into_buf().get_u16_be();
     buffer.split_to(length as usize).to_vec()
 }
