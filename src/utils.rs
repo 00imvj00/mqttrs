@@ -29,12 +29,6 @@ impl PacketIdentifier {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Protocol {
-    MQIsdp(u8),
-    MQTT(u8),
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum QoS {
     AtMostOnce,
     AtLeastOnce,
@@ -95,36 +89,6 @@ pub struct LastWill {
     pub message: Vec<u8>,
     pub qos: QoS,
     pub retain: bool,
-}
-
-impl Protocol {
-    pub fn new(name: &str, level: u8) -> Result<Protocol, io::Error> {
-        match name {
-            "MQIsdp" => match level {
-                3 => Ok(Protocol::MQIsdp(3)),
-                _ => Err(io::Error::new(io::ErrorKind::InvalidData, "")),
-            },
-            "MQTT" => match level {
-                4 => Ok(Protocol::MQTT(4)),
-                _ => Err(io::Error::new(io::ErrorKind::InvalidData, "")),
-            },
-            _ => Err(io::Error::new(io::ErrorKind::InvalidData, "")),
-        }
-    }
-
-    pub(crate) fn name(&self) -> &'static str {
-        match self {
-            &Protocol::MQIsdp(_) => "MQIsdp",
-            &Protocol::MQTT(_) => "MQTT",
-        }
-    }
-
-    pub(crate) fn level(&self) -> u8 {
-        match self {
-            &Protocol::MQIsdp(level) => level,
-            &Protocol::MQTT(level) => level,
-        }
-    }
 }
 
 impl ConnectReturnCode {

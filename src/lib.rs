@@ -18,10 +18,11 @@ pub use crate::{
     connect::{Connack, Connect},
     decoder::decode,
     encoder::encode,
+    header::Protocol,
     packet::{Packet, PacketType},
     publish::Publish,
     subscribe::{Suback, Subscribe, SubscribeReturnCodes, SubscribeTopic, Unsubscribe},
-    utils::{ConnectReturnCode, LastWill, PacketIdentifier, Protocol, QoS, QosPid},
+    utils::{ConnectReturnCode, LastWill, PacketIdentifier, QoS, QosPid},
 };
 
 const MULTIPLIER: usize = 0x80 * 0x80 * 0x80 * 0x80;

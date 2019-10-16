@@ -101,8 +101,7 @@ impl Connect {
         //NOTE: putting data into buffer.
         buffer.put(header_u8);
         write_length(length, buffer)?;
-        write_string(self.protocol.name(), buffer)?;
-        buffer.put(self.protocol.level());
+        self.protocol.to_buffer(buffer)?;
         buffer.put(connect_flags);
         buffer.put_u16_be(self.keep_alive);
         write_string(self.client_id.as_ref(), buffer)?;

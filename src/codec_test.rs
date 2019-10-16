@@ -45,7 +45,7 @@ prop_compose! {
                      clean_session in bool::ANY,
                      username in stg_optstr(),
                      password in stg_optstr()) -> Packet {
-        Packet::Connect(Connect { protocol: Protocol::MQTT(4),
+        Packet::Connect(Connect { protocol: Protocol::MQTT311,
                                   keep_alive,
                                   client_id,
                                   clean_session,
