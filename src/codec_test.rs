@@ -62,16 +62,19 @@ prop_compose! {
 }
 prop_compose! {
     fn stg_publish()(dup in bool::ANY,
-                     qos in 0u8..3,
+                     qos in stg_qos(),
                      pid in stg_pid(),
                      retain in bool::ANY,
                      topic_name in stg_topic(),
                      payload in vec(0u8..255u8, 1..300)) -> Packet {
         Packet::Publish(Publish{dup,
-                                qos: QoS::from_u8(qos).unwrap(),
+                                qospid: match qos {
+                                    QoS::AtMostOnce => QosPid::AtMostOnce,
+                                    QoS::AtLeastOnce => QosPid::AtLeastOnce(pid),
+                                    QoS::ExactlyOnce => QosPid::ExactlyOnce(pid),
+                                },
                                 retain,
                                 topic_name,
-                                pid: if qos == 0 { None } else { Some(pid) },
                                 payload})
     }
 }

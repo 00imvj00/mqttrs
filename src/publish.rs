@@ -1,14 +1,13 @@
-use crate::{encoder, utils, Header, PacketIdentifier, QoS};
+use crate::{encoder, utils, Header, PacketIdentifier, QoS, QosPid};
 use bytes::{BufMut, BytesMut};
 use std::io;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Publish {
     pub dup: bool,
-    pub qos: QoS,
+    pub qospid: QosPid,
     pub retain: bool,
     pub topic_name: String,
-    pub pid: Option<PacketIdentifier>,
     pub payload: Vec<u8>,
 }
 
@@ -16,26 +15,28 @@ impl Publish {
     pub fn from_buffer(header: &Header, buffer: &mut BytesMut) -> Result<Self, io::Error> {
         let topic_name = utils::read_string(buffer);
 
-        let pid = if header.qos()? == QoS::AtMostOnce {
-            None
-        } else {
-            Some(PacketIdentifier::from_buffer(buffer)?)
+        let qospid = match header.qos()? {
+            QoS::AtMostOnce => QosPid::AtMostOnce,
+            QoS::AtLeastOnce => QosPid::AtLeastOnce(PacketIdentifier::from_buffer(buffer)?),
+            QoS::ExactlyOnce => QosPid::ExactlyOnce(PacketIdentifier::from_buffer(buffer)?),
         };
 
         let payload = buffer.to_vec();
         Ok(Publish {
             dup: header.dup(),
-            qos: header.qos()?,
+            qospid,
             retain: header.retain(),
             topic_name,
-            pid,
             payload,
         })
     }
     pub fn to_buffer(&self, buffer: &mut BytesMut) -> Result<(), io::Error> {
         // Header
-        let mut header_u8: u8 = 0b00110000 as u8;
-        header_u8 |= (self.qos.to_u8()) << 1;
+        let mut header_u8: u8 = match self.qospid {
+            QosPid::AtMostOnce => 0b00110000,
+            QosPid::AtLeastOnce(_) => 0b00110010,
+            QosPid::ExactlyOnce(_) => 0b00110100,
+        };
         if self.dup {
             header_u8 |= 0b00001000 as u8;
         };
@@ -46,8 +47,8 @@ impl Publish {
 
         // Length: topic (2+len) + pid (0/2) + payload (len)
         let length = self.topic_name.len()
-            + match self.qos {
-                QoS::AtMostOnce => 2,
+            + match self.qospid {
+                QosPid::AtMostOnce => 2,
                 _ => 4,
             }
             + self.payload.len();
@@ -57,8 +58,10 @@ impl Publish {
         encoder::write_string(self.topic_name.as_ref(), buffer)?;
 
         // Pid
-        if self.qos != QoS::AtMostOnce {
-            self.pid.unwrap().to_buffer(buffer);
+        match self.qospid {
+            QosPid::AtMostOnce => (),
+            QosPid::AtLeastOnce(pid) => pid.to_buffer(buffer),
+            QosPid::ExactlyOnce(pid) => pid.to_buffer(buffer),
         }
 
         // Payload

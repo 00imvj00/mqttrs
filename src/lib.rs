@@ -21,7 +21,7 @@ pub use crate::{
     packet::Packet,
     publish::Publish,
     subscribe::{Suback, Subscribe, SubscribeReturnCodes, SubscribeTopic, Unsubscribe},
-    utils::{ConnectReturnCode, LastWill, PacketIdentifier, Protocol, QoS},
+    utils::{ConnectReturnCode, LastWill, PacketIdentifier, Protocol, QoS, QosPid},
 };
 
 const MULTIPLIER: usize = 0x80 * 0x80 * 0x80 * 0x80;

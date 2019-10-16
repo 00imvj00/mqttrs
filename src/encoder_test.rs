@@ -1,7 +1,7 @@
 #[allow(unused_imports)]
 use crate::{
     decoder, encoder, Connack, Connect, ConnectReturnCode, Packet, PacketIdentifier, Protocol,
-    Publish, QoS, Suback, Subscribe, SubscribeReturnCodes, SubscribeTopic, Unsubscribe,
+    Publish, QoS, QosPid, Suback, Subscribe, SubscribeReturnCodes, SubscribeTopic, Unsubscribe,
 };
 
 #[allow(unused_imports)]
@@ -50,10 +50,9 @@ fn test_connack() {
 fn test_publish() {
     let packet = Publish {
         dup: false,
-        qos: QoS::ExactlyOnce,
+        qospid: QosPid::from_u8u16(2, 10).unwrap(),
         retain: true,
         topic_name: "asdf".to_string(),
-        pid: Some(PacketIdentifier::new(10).unwrap()),
         payload: vec!['h' as u8, 'e' as u8, 'l' as u8, 'l' as u8, 'o' as u8],
     };
     let mut buffer = BytesMut::with_capacity(1024);

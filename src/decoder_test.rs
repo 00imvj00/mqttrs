@@ -1,8 +1,8 @@
 #![allow(unused_imports)]
 
 use crate::{
-    decoder, Connack, ConnectReturnCode, Packet, PacketIdentifier, QoS, SubscribeReturnCodes,
-    SubscribeTopic,
+    decoder, Connack, ConnectReturnCode, Packet, PacketIdentifier, QoS, QosPid,
+    SubscribeReturnCodes, SubscribeTopic,
 };
 use bytes::BytesMut;
 
@@ -102,7 +102,7 @@ fn test_publish() {
         Some(Packet::Publish(p)) => {
             assert_eq!(p.dup, false);
             assert_eq!(p.retain, false);
-            assert_eq!(p.qos, QoS::AtMostOnce);
+            assert_eq!(p.qospid, QosPid::AtMostOnce);
             assert_eq!(p.topic_name, "a/b");
             assert_eq!(String::from_utf8(p.payload).unwrap(), "hello");
         }
@@ -112,7 +112,7 @@ fn test_publish() {
         Some(Packet::Publish(p)) => {
             assert_eq!(p.dup, true);
             assert_eq!(p.retain, false);
-            assert_eq!(p.qos, QoS::AtMostOnce);
+            assert_eq!(p.qospid, QosPid::AtMostOnce);
             assert_eq!(p.topic_name, "a/b");
             assert_eq!(String::from_utf8(p.payload).unwrap(), "hello");
         }
@@ -122,9 +122,8 @@ fn test_publish() {
         Some(Packet::Publish(p)) => {
             assert_eq!(p.dup, true);
             assert_eq!(p.retain, true);
-            assert_eq!(p.qos, QoS::ExactlyOnce);
+            assert_eq!(p.qospid, QosPid::from_u8u16(2, 10).unwrap());
             assert_eq!(p.topic_name, "a/b");
-            assert_eq!(p.pid, Some(PacketIdentifier::new(10).unwrap()));
             assert_eq!(String::from_utf8(p.payload).unwrap(), "hello");
         }
         _ => panic!("Should not be None"),

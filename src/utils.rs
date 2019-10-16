@@ -10,10 +10,7 @@ impl PacketIdentifier {
     pub fn new(u: u16) -> Result<Self, io::Error> {
         match NonZeroU16::new(u) {
             Some(nz) => Ok(PacketIdentifier(nz)),
-            None => Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                "Zero PacketIdentifier",
-            )),
+            None => Err(io::Error::new(io::ErrorKind::InvalidData, "Pid == 0")),
         }
     }
     pub fn get(self) -> u16 {
@@ -52,12 +49,29 @@ impl QoS {
             0 => Ok(QoS::AtMostOnce),
             1 => Ok(QoS::AtLeastOnce),
             2 => Ok(QoS::ExactlyOnce),
-            _ => Err(io::Error::new(io::ErrorKind::InvalidData, "")),
+            _ => Err(io::Error::new(io::ErrorKind::InvalidData, "Qos > 2")),
         }
     }
     #[inline]
     pub fn from_hd(hd: u8) -> Result<QoS, io::Error> {
         Self::from_u8((hd & 0b110) >> 1)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum QosPid {
+    AtMostOnce,
+    AtLeastOnce(PacketIdentifier),
+    ExactlyOnce(PacketIdentifier),
+}
+impl QosPid {
+    pub fn from_u8u16(qos: u8, pid: u16) -> Result<Self, io::Error> {
+        match qos {
+            0 => Ok(QosPid::AtMostOnce),
+            1 => Ok(QosPid::AtLeastOnce(PacketIdentifier::new(pid)?)),
+            2 => Ok(QosPid::ExactlyOnce(PacketIdentifier::new(pid)?)),
+            _ => Err(io::Error::new(io::ErrorKind::InvalidData, "Qos > 2")),
+        }
     }
 }
 
