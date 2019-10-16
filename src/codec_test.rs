@@ -51,7 +51,7 @@ prop_compose! {
                                   clean_session,
                                   last_will: None,
                                   username,
-                                  password })
+                                  password: password.map(|p| p.as_bytes().to_vec()) })
     }
 }
 prop_compose! {

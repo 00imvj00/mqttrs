@@ -1,4 +1,4 @@
-use crate::{encoder, utils, PacketIdentifier, QoS};
+use crate::{decoder::*, encoder::*, PacketIdentifier, QoS};
 use bytes::{Buf, BufMut, BytesMut, IntoBuf};
 use std::io;
 
@@ -45,7 +45,7 @@ impl Subscribe {
         let pid = PacketIdentifier::from_buffer(buffer)?;
         let mut topics: Vec<SubscribeTopic> = Vec::new();
         while buffer.len() != 0 {
-            let topic_path = utils::read_string(buffer);
+            let topic_path = read_string(buffer);
             let qos = QoS::from_u8(buffer.split_to(1).into_buf().get_u8())?;
             let topic = SubscribeTopic { topic_path, qos };
             topics.push(topic);
@@ -62,14 +62,14 @@ impl Subscribe {
         for topic in &self.topics {
             length += topic.topic_path.len() + 2 + 1;
         }
-        encoder::write_length(length, buffer)?;
+        write_length(length, buffer)?;
 
         // Pid
         self.pid.to_buffer(buffer);
 
         // Topics
         for topic in &self.topics {
-            encoder::write_string(topic.topic_path.as_ref(), buffer)?;
+            write_string(topic.topic_path.as_ref(), buffer)?;
             buffer.put(topic.qos.to_u8());
         }
 
@@ -82,7 +82,7 @@ impl Unsubscribe {
         let pid = PacketIdentifier::from_buffer(buffer)?;
         let mut topics: Vec<String> = Vec::new();
         while buffer.len() != 0 {
-            let topic_path = utils::read_string(buffer);
+            let topic_path = read_string(buffer);
             topics.push(topic_path);
         }
         Ok(Unsubscribe { pid, topics })
@@ -96,10 +96,10 @@ impl Unsubscribe {
         }
 
         buffer.put(header_u8);
-        encoder::write_length(length, buffer)?;
+        write_length(length, buffer)?;
         self.pid.to_buffer(buffer);
         for topic in&self.topics{
-            encoder::write_string(topic.as_ref(), buffer)?;
+            write_string(topic.as_ref(), buffer)?;
         }
         Ok(())
     }
@@ -125,7 +125,7 @@ impl Suback {
         let length = 2 + self.return_codes.len();
 
         buffer.put(header_u8);
-        encoder::write_length(length, buffer)?;
+        write_length(length, buffer)?;
         self.pid.to_buffer(buffer);
         for rc in &self.return_codes {
             buffer.put(rc.to_u8());

@@ -2,7 +2,6 @@ use crate::{Packet, MAX_PAYLOAD_SIZE};
 use bytes::{BufMut, BytesMut};
 use std::io;
 
-#[allow(dead_code)]
 pub fn encode(packet: &Packet, buffer: &mut BytesMut) -> Result<(), io::Error> {
     match packet {
         Packet::Connect(connect) => connect.to_buffer(buffer),
@@ -90,8 +89,12 @@ pub fn write_length(len: usize, buffer: &mut BytesMut) -> Result<(), io::Error> 
     Ok(())
 }
 
-pub fn write_string(string: &str, buffer: &mut BytesMut) -> Result<(), io::Error> {
-    buffer.put_u16_be(string.len() as u16);
-    buffer.put_slice(string.as_bytes());
+pub fn write_bytes(bytes: &[u8], buffer: &mut BytesMut) -> Result<(), io::Error> {
+    buffer.put_u16_be(bytes.len() as u16);
+    buffer.put_slice(bytes);
     Ok(())
+}
+
+pub fn write_string(string: &str, buffer: &mut BytesMut) -> Result<(), io::Error> {
+    write_bytes(string.as_bytes(), buffer)
 }

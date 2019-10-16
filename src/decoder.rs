@@ -1,9 +1,8 @@
 use crate::MULTIPLIER;
 use crate::*;
-use bytes::BytesMut;
+use bytes::{Buf, BytesMut, IntoBuf};
 use std::io;
 
-#[allow(dead_code)]
 pub fn decode(buffer: &mut BytesMut) -> Result<Option<Packet>, io::Error> {
     if let Some((header, header_size)) = read_header(buffer) {
         if buffer.len() >= header.len() + header_size {
@@ -50,7 +49,8 @@ fn read_packet(header: Header, buffer: &mut BytesMut) -> Result<Packet, io::Erro
         PacketType::UnSubAck => Packet::UnSubAck(PacketIdentifier::from_buffer(buffer)?),
     })
 }
-/* This will read the header of the stream */
+
+/// Read the header of the stream
 fn read_header(buffer: &mut BytesMut) -> Option<(Header, usize)> {
     if buffer.len() > 1 {
         let header_u8 = buffer.get(0).unwrap();
@@ -84,4 +84,15 @@ fn read_length(buffer: &BytesMut, mut pos: usize) -> Option<(usize, usize)> {
         }
     }
     Some((len as usize, pos))
+}
+
+// FIXME: Result<String,...>
+pub fn read_string(buffer: &mut BytesMut) -> String {
+    String::from_utf8(read_bytes(buffer)).expect("Non-utf8 string")
+}
+
+// FIXME: This can panic if the packet is malformed
+pub fn read_bytes(buffer: &mut BytesMut) -> Vec<u8> {
+    let length = buffer.split_to(2).into_buf().get_u16_be();
+    buffer.split_to(length as usize).to_vec()
 }

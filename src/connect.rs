@@ -1,4 +1,4 @@
-use crate::{encoder, utils, ConnectReturnCode, LastWill, Protocol, QoS};
+use crate::{decoder::*, encoder::*, ConnectReturnCode, LastWill, Protocol, QoS};
 use bytes::{Buf, BufMut, BytesMut, IntoBuf};
 use std::io;
 
@@ -10,7 +10,7 @@ pub struct Connect {
     pub clean_session: bool,
     pub last_will: Option<LastWill>,
     pub username: Option<String>,
-    pub password: Option<String>,
+    pub password: Option<Vec<u8>>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -21,18 +21,18 @@ pub struct Connack {
 
 impl Connect {
     pub fn from_buffer(buffer: &mut BytesMut) -> Result<Self, io::Error> {
-        let protocol_name = utils::read_string(buffer);
+        let protocol_name = read_string(buffer);
         let protocol_level = buffer.split_to(1).into_buf().get_u8();
         let protocol = Protocol::new(&protocol_name, protocol_level).unwrap();
 
         let connect_flags = buffer.split_to(1).into_buf().get_u8();
         let keep_alive = buffer.split_to(2).into_buf().get_u16_be();
 
-        let client_id = utils::read_string(buffer);
+        let client_id = read_string(buffer);
 
         let last_will = if connect_flags & 0b100 != 0 {
-            let will_topic = utils::read_string(buffer);
-            let will_message = utils::read_string(buffer);
+            let will_topic = read_string(buffer);
+            let will_message = read_bytes(buffer);
             let will_qod = QoS::from_u8((connect_flags & 0b11000) >> 3).unwrap();
             Some(LastWill {
                 topic: will_topic,
@@ -45,13 +45,13 @@ impl Connect {
         };
 
         let username = if connect_flags & 0b10000000 != 0 {
-            Some(utils::read_string(buffer))
+            Some(read_string(buffer))
         } else {
             None
         };
 
         let password = if connect_flags & 0b01000000 != 0 {
-            Some(utils::read_string(buffer))
+            Some(read_bytes(buffer))
         } else {
             None
         };
@@ -100,23 +100,23 @@ impl Connect {
 
         //NOTE: putting data into buffer.
         buffer.put(header_u8);
-        encoder::write_length(length, buffer)?;
-        encoder::write_string(self.protocol.name(), buffer)?;
+        write_length(length, buffer)?;
+        write_string(self.protocol.name(), buffer)?;
         buffer.put(self.protocol.level());
         buffer.put(connect_flags);
         buffer.put_u16_be(self.keep_alive);
-        encoder::write_string(self.client_id.as_ref(), buffer)?;
+        write_string(self.client_id.as_ref(), buffer)?;
 
         if let Some(last_will) = &self.last_will {
-            encoder::write_string(last_will.topic.as_ref(), buffer)?;
-            encoder::write_string(last_will.message.as_ref(), buffer)?;
+            write_string(last_will.topic.as_ref(), buffer)?;
+            write_bytes(&last_will.message, buffer)?;
         };
 
         if let Some(username) = &self.username {
-            encoder::write_string(username.as_ref(), buffer)?;
+            write_string(username.as_ref(), buffer)?;
         };
         if let Some(password) = &self.password {
-            encoder::write_string(password.as_ref(), buffer)?;
+            write_bytes(password, buffer)?;
         };
         //NOTE: END
         Ok(())

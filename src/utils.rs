@@ -19,6 +19,7 @@ impl PacketIdentifier {
     pub(crate) fn from_buffer(buf: &mut BytesMut) -> Result<Self, io::Error> {
         Self::new(buf.split_to(2).into_buf().get_u16_be())
     }
+    // FIXME: Result<(), io::Error>
     pub(crate) fn to_buffer(self, buf: &mut BytesMut) {
         buf.put_u16_be(self.get())
     }
@@ -88,7 +89,7 @@ pub enum ConnectReturnCode {
 #[derive(Debug, Clone, PartialEq)]
 pub struct LastWill {
     pub topic: String,
-    pub message: String,
+    pub message: Vec<u8>,
     pub qos: QoS,
     pub retain: bool,
 }
@@ -146,10 +147,4 @@ impl ConnectReturnCode {
             _ => Err(io::Error::new(io::ErrorKind::InvalidInput, "")),
         }
     }
-}
-
-pub fn read_string(buffer: &mut BytesMut) -> String {
-    let length = buffer.split_to(2).into_buf().get_u16_be();
-    let byts = buffer.split_to(length as usize);
-    return String::from_utf8(byts.to_vec()).unwrap().to_string();
 }
