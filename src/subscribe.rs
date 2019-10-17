@@ -1,6 +1,6 @@
 use crate::{decoder::*, encoder::*, PacketIdentifier, QoS};
 use bytes::{Buf, BufMut, BytesMut, IntoBuf};
-use std::io;
+use std::io::Error;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct SubscribeTopic {
@@ -41,11 +41,11 @@ pub struct Unsubscribe {
 }
 
 impl Subscribe {
-    pub(crate) fn from_buffer(buffer: &mut BytesMut) -> Result<Self, io::Error> {
+    pub(crate) fn from_buffer(buffer: &mut BytesMut) -> Result<Self, Error> {
         let pid = PacketIdentifier::from_buffer(buffer)?;
         let mut topics: Vec<SubscribeTopic> = Vec::new();
         while buffer.len() != 0 {
-            let topic_path = read_string(buffer);
+            let topic_path = read_string(buffer)?;
             let qos = QoS::from_u8(buffer.split_to(1).into_buf().get_u8())?;
             let topic = SubscribeTopic { topic_path, qos };
             topics.push(topic);
@@ -53,8 +53,9 @@ impl Subscribe {
         Ok(Subscribe { pid, topics })
     }
 
-    pub(crate) fn to_buffer(&self, buffer: &mut BytesMut) -> Result<(), io::Error> {
+    pub(crate) fn to_buffer(&self, buffer: &mut BytesMut) -> Result<(), Error> {
         let header_u8: u8 = 0b10000010;
+        check_remaining(buffer, 1)?;
         buffer.put(header_u8);
 
         // Length: pid(2) + topic.for_each(2+len + qos(1))
@@ -65,7 +66,7 @@ impl Subscribe {
         write_length(length, buffer)?;
 
         // Pid
-        self.pid.to_buffer(buffer);
+        self.pid.to_buffer(buffer)?;
 
         // Topics
         for topic in &self.topics {
@@ -78,26 +79,27 @@ impl Subscribe {
 }
 
 impl Unsubscribe {
-    pub(crate) fn from_buffer(buffer: &mut BytesMut) -> Result<Self, io::Error> {
+    pub(crate) fn from_buffer(buffer: &mut BytesMut) -> Result<Self, Error> {
         let pid = PacketIdentifier::from_buffer(buffer)?;
         let mut topics: Vec<String> = Vec::new();
         while buffer.len() != 0 {
-            let topic_path = read_string(buffer);
+            let topic_path = read_string(buffer)?;
             topics.push(topic_path);
         }
         Ok(Unsubscribe { pid, topics })
     }
 
-    pub(crate) fn to_buffer(&self, buffer: &mut  BytesMut) -> Result<(), io::Error>{
+    pub(crate) fn to_buffer(&self, buffer: &mut  BytesMut) -> Result<(), Error>{
         let header_u8 : u8 = 0b10100010;
         let mut length = 2;
         for topic in &self.topics{
             length += 2 + topic.len();
         }
-
+        check_remaining(buffer, 1)?;
         buffer.put(header_u8);
+
         write_length(length, buffer)?;
-        self.pid.to_buffer(buffer);
+        self.pid.to_buffer(buffer)?;
         for topic in&self.topics{
             write_string(topic.as_ref(), buffer)?;
         }
@@ -106,7 +108,7 @@ impl Unsubscribe {
 }
 
 impl Suback {
-    pub(crate) fn from_buffer(buffer: &mut BytesMut) -> Result<Self, io::Error> {
+    pub(crate) fn from_buffer(buffer: &mut BytesMut) -> Result<Self, Error> {
         let pid = PacketIdentifier::from_buffer(buffer)?;
         let mut return_codes: Vec<SubscribeReturnCodes> = Vec::new();
         while buffer.len() != 0 {
@@ -120,13 +122,14 @@ impl Suback {
         }
         Ok(Suback { return_codes, pid })
     }
-    pub(crate) fn to_buffer(&self, buffer: &mut BytesMut) -> Result<(), io::Error> {
+    pub(crate) fn to_buffer(&self, buffer: &mut BytesMut) -> Result<(), Error> {
         let header_u8: u8 = 0b10010000;
         let length = 2 + self.return_codes.len();
-
+        check_remaining(buffer, 1)?;
         buffer.put(header_u8);
+
         write_length(length, buffer)?;
-        self.pid.to_buffer(buffer);
+        self.pid.to_buffer(buffer)?;
         for rc in &self.return_codes {
             buffer.put(rc.to_u8());
         }

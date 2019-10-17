@@ -1,5 +1,5 @@
 use crate::{Connack, Connect, PacketIdentifier, Publish, Suback, Subscribe, Unsubscribe};
-use std::io;
+use std::io::{Error, ErrorKind};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Packet {
@@ -58,7 +58,7 @@ pub enum PacketType {
 }
 impl PacketType {
     #[inline]
-    pub(crate) fn from_hd(hd: u8) -> Result<Self, io::Error> {
+    pub(crate) fn from_hd(hd: u8) -> Result<Self, Error> {
         match hd >> 4 {
             1 => Ok(PacketType::Connect),
             2 => Ok(PacketType::Connack),
@@ -74,8 +74,8 @@ impl PacketType {
             12 => Ok(PacketType::PingReq),
             13 => Ok(PacketType::PingResp),
             14 => Ok(PacketType::Disconnect),
-            _ => Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
+            _ => Err(Error::new(
+                ErrorKind::InvalidInput,
                 "Unsupported packet type",
             )),
         }

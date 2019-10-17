@@ -1,6 +1,6 @@
 use crate::{decoder::*, encoder::*, header::Header, PacketIdentifier, QoS, QosPid};
 use bytes::{BufMut, BytesMut};
-use std::io;
+use std::io::Error;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Publish {
@@ -12,8 +12,8 @@ pub struct Publish {
 }
 
 impl Publish {
-    pub(crate) fn from_buffer(header: &Header, buffer: &mut BytesMut) -> Result<Self, io::Error> {
-        let topic_name = read_string(buffer);
+    pub(crate) fn from_buffer(header: &Header, buffer: &mut BytesMut) -> Result<Self, Error> {
+        let topic_name = read_string(buffer)?;
 
         let qospid = match header.qos()? {
             QoS::AtMostOnce => QosPid::AtMostOnce,
@@ -30,7 +30,7 @@ impl Publish {
             payload,
         })
     }
-    pub(crate) fn to_buffer(&self, buffer: &mut BytesMut) -> Result<(), io::Error> {
+    pub(crate) fn to_buffer(&self, buffer: &mut BytesMut) -> Result<(), Error> {
         // Header
         let mut header_u8: u8 = match self.qospid {
             QosPid::AtMostOnce => 0b00110000,
@@ -43,6 +43,7 @@ impl Publish {
         if self.retain {
             header_u8 |= 0b00000001 as u8;
         };
+        check_remaining(buffer, 1)?;
         buffer.put(header_u8);
 
         // Length: topic (2+len) + pid (0/2) + payload (len)
@@ -60,8 +61,8 @@ impl Publish {
         // Pid
         match self.qospid {
             QosPid::AtMostOnce => (),
-            QosPid::AtLeastOnce(pid) => pid.to_buffer(buffer),
-            QosPid::ExactlyOnce(pid) => pid.to_buffer(buffer),
+            QosPid::AtLeastOnce(pid) => pid.to_buffer(buffer)?,
+            QosPid::ExactlyOnce(pid) => pid.to_buffer(buffer)?,
         }
 
         // Payload

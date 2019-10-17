@@ -1,6 +1,7 @@
 use crate::*;
 use bytes::BytesMut;
 use proptest::{bool, collection::vec, num::*, prelude::*};
+use std::io::ErrorKind;
 
 // Proptest strategies to generate packet elements
 prop_compose! {
@@ -163,6 +164,21 @@ macro_rules! impl_proptests {
                 encoded.split_off(encoded.len() - 1);
                 let decoded = decoder::decode(&mut encoded).unwrap();
                 prop_assert!(decoded.is_none(), "partial decode {:?} -> {:?}", encoded, decoded);
+
+                // Check that encoding into a small buffer fails cleanly
+                buf.clear();
+                buf.split_off(encoded.len()+1);
+                prop_assert!(encoder::encode(&pkt.clone(), &mut buf).is_ok(), "exact buffer capacity {}", buf.capacity());
+                loop {
+                    buf.clear();
+                    buf.split_off(buf.capacity()-1);
+                    prop_assert_eq!(ErrorKind::WriteZero,
+                                    encoder::encode(&pkt.clone(), &mut buf).unwrap_err().kind(),
+                                    "small buffer capacity {}/{}", buf.capacity(), encoded.len());
+                    if buf.capacity() == 0 {
+                        break;
+                    }
+                }
             }
         }
     };

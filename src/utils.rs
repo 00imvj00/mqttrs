@@ -1,5 +1,9 @@
+use crate::encoder::check_remaining;
 use bytes::{Buf, BufMut, BytesMut, IntoBuf};
-use std::{io, num::NonZeroU16};
+use std::{
+    io::{Error, ErrorKind},
+    num::NonZeroU16,
+};
 
 /// Packet Identifier, for ack purposes.
 ///
@@ -10,21 +14,21 @@ use std::{io, num::NonZeroU16};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct PacketIdentifier(NonZeroU16);
 impl PacketIdentifier {
-    pub fn new(u: u16) -> Result<Self, io::Error> {
+    pub fn new(u: u16) -> Result<Self, Error> {
         match NonZeroU16::new(u) {
             Some(nz) => Ok(PacketIdentifier(nz)),
-            None => Err(io::Error::new(io::ErrorKind::InvalidData, "Pid == 0")),
+            None => Err(Error::new(ErrorKind::InvalidData, "Pid == 0")),
         }
     }
     pub fn get(self) -> u16 {
         self.0.get()
     }
-    pub(crate) fn from_buffer(buf: &mut BytesMut) -> Result<Self, io::Error> {
+    pub(crate) fn from_buffer(buf: &mut BytesMut) -> Result<Self, Error> {
         Self::new(buf.split_to(2).into_buf().get_u16_be())
     }
-    // FIXME: Result<(), io::Error>
-    pub(crate) fn to_buffer(self, buf: &mut BytesMut) {
-        buf.put_u16_be(self.get())
+    pub(crate) fn to_buffer(self, buf: &mut BytesMut) -> Result<(), Error> {
+        check_remaining(buf, 2)?;
+        Ok(buf.put_u16_be(self.get()))
     }
 }
 
@@ -42,16 +46,16 @@ impl QoS {
             QoS::ExactlyOnce => 2,
         }
     }
-    pub fn from_u8(byte: u8) -> Result<QoS, io::Error> {
+    pub fn from_u8(byte: u8) -> Result<QoS, Error> {
         match byte {
             0 => Ok(QoS::AtMostOnce),
             1 => Ok(QoS::AtLeastOnce),
             2 => Ok(QoS::ExactlyOnce),
-            _ => Err(io::Error::new(io::ErrorKind::InvalidData, "Qos > 2")),
+            _ => Err(Error::new(ErrorKind::InvalidData, "Qos > 2")),
         }
     }
     #[inline]
-    pub(crate) fn from_hd(hd: u8) -> Result<QoS, io::Error> {
+    pub(crate) fn from_hd(hd: u8) -> Result<QoS, Error> {
         Self::from_u8((hd & 0b110) >> 1)
     }
 }
@@ -63,12 +67,12 @@ pub enum QosPid {
     ExactlyOnce(PacketIdentifier),
 }
 impl QosPid {
-    pub fn from_u8u16(qos: u8, pid: u16) -> Result<Self, io::Error> {
+    pub fn from_u8u16(qos: u8, pid: u16) -> Result<Self, Error> {
         match qos {
             0 => Ok(QosPid::AtMostOnce),
             1 => Ok(QosPid::AtLeastOnce(PacketIdentifier::new(pid)?)),
             2 => Ok(QosPid::ExactlyOnce(PacketIdentifier::new(pid)?)),
-            _ => Err(io::Error::new(io::ErrorKind::InvalidData, "Qos > 2")),
+            _ => Err(Error::new(ErrorKind::InvalidData, "Qos > 2")),
         }
     }
 }
@@ -103,7 +107,7 @@ impl ConnectReturnCode {
         }
     }
 
-    pub fn from_u8(byte: u8) -> Result<ConnectReturnCode, io::Error> {
+    pub fn from_u8(byte: u8) -> Result<ConnectReturnCode, Error> {
         match byte {
             0 => Ok(ConnectReturnCode::Accepted),
             1 => Ok(ConnectReturnCode::RefusedProtocolVersion),
@@ -111,7 +115,7 @@ impl ConnectReturnCode {
             3 => Ok(ConnectReturnCode::ServerUnavailable),
             4 => Ok(ConnectReturnCode::BadUsernamePassword),
             5 => Ok(ConnectReturnCode::NotAuthorized),
-            _ => Err(io::Error::new(io::ErrorKind::InvalidInput, "")),
+            _ => Err(Error::new(ErrorKind::InvalidInput, "ConnectReturnCode > 5")),
         }
     }
 }

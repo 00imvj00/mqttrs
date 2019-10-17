@@ -1,6 +1,6 @@
 use crate::{decoder::*, encoder::*, ConnectReturnCode, LastWill, Protocol, QoS};
 use bytes::{Buf, BufMut, BytesMut, IntoBuf};
-use std::io;
+use std::io::Error;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Connect {
@@ -20,19 +20,19 @@ pub struct Connack {
 }
 
 impl Connect {
-    pub(crate) fn from_buffer(buffer: &mut BytesMut) -> Result<Self, io::Error> {
-        let protocol_name = read_string(buffer);
+    pub(crate) fn from_buffer(buffer: &mut BytesMut) -> Result<Self, Error> {
+        let protocol_name = read_string(buffer)?;
         let protocol_level = buffer.split_to(1).into_buf().get_u8();
         let protocol = Protocol::new(&protocol_name, protocol_level).unwrap();
 
         let connect_flags = buffer.split_to(1).into_buf().get_u8();
         let keep_alive = buffer.split_to(2).into_buf().get_u16_be();
 
-        let client_id = read_string(buffer);
+        let client_id = read_string(buffer)?;
 
         let last_will = if connect_flags & 0b100 != 0 {
-            let will_topic = read_string(buffer);
-            let will_message = read_bytes(buffer);
+            let will_topic = read_string(buffer)?;
+            let will_message = read_bytes(buffer)?;
             let will_qod = QoS::from_u8((connect_flags & 0b11000) >> 3).unwrap();
             Some(LastWill {
                 topic: will_topic,
@@ -45,13 +45,13 @@ impl Connect {
         };
 
         let username = if connect_flags & 0b10000000 != 0 {
-            Some(read_string(buffer))
+            Some(read_string(buffer)?)
         } else {
             None
         };
 
         let password = if connect_flags & 0b01000000 != 0 {
-            Some(read_bytes(buffer))
+            Some(read_bytes(buffer)?)
         } else {
             None
         };
@@ -68,7 +68,8 @@ impl Connect {
             clean_session,
         })
     }
-    pub(crate) fn to_buffer(&self, buffer: &mut BytesMut) -> Result<(), io::Error> {
+    pub(crate) fn to_buffer(&self, buffer: &mut BytesMut) -> Result<(), Error> {
+
         let header_u8: u8 = 0b00010000;
         let mut length: usize = 6 + 1 + 1; //NOTE: protocol_name(6) + protocol_level(1) + flags(1);
         let mut connect_flags: u8 = 0b00000000;
@@ -97,6 +98,7 @@ impl Connect {
             length += last_will.topic.len();
             length += 4;
         };
+        check_remaining(buffer, length+1)?;
 
         //NOTE: putting data into buffer.
         buffer.put(header_u8);
@@ -123,7 +125,7 @@ impl Connect {
 }
 
 impl Connack {
-    pub(crate) fn from_buffer(buffer: &mut BytesMut) -> Result<Self, io::Error> {
+    pub(crate) fn from_buffer(buffer: &mut BytesMut) -> Result<Self, Error> {
         let flags = buffer.split_to(1).into_buf().get_u8();
         let return_code = buffer.split_to(1).into_buf().get_u8();
         Ok(Connack {
@@ -131,7 +133,8 @@ impl Connack {
             code: ConnectReturnCode::from_u8(return_code)?,
         })
     }
-    pub(crate) fn to_buffer(&self, buffer: &mut BytesMut) -> Result<(), io::Error> {
+    pub(crate) fn to_buffer(&self, buffer: &mut BytesMut) -> Result<(), Error> {
+        check_remaining(buffer, 4)?;
         let header_u8 = 0b00100000 as u8;
         let length = 2 as u8;
         let mut flags = 0b00000000 as u8;

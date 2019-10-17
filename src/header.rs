@@ -1,6 +1,6 @@
 use crate::{PacketType, QoS};
 use bytes::{BufMut, BytesMut};
-use std::io;
+use std::io::{Error, ErrorKind};
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct Header {
@@ -10,7 +10,7 @@ pub(crate) struct Header {
 }
 
 impl Header {
-    pub fn new(hd: u8, len: usize) -> Result<Header, io::Error> {
+    pub fn new(hd: u8, len: usize) -> Result<Header, Error> {
         Ok(Header {
             hd,
             len,
@@ -29,7 +29,7 @@ impl Header {
         (self.hd & 0b1000) != 0
     }
     #[inline]
-    pub fn qos(&self) -> Result<QoS, io::Error> {
+    pub fn qos(&self) -> Result<QoS, Error> {
         QoS::from_hd(self.hd)
     }
     #[inline]
@@ -53,17 +53,17 @@ pub enum Protocol {
     MQIsdp,
 }
 impl Protocol {
-    pub(crate) fn new(name: &str, level: u8) -> Result<Protocol, io::Error> {
+    pub(crate) fn new(name: &str, level: u8) -> Result<Protocol, Error> {
         match (name, level) {
             ("MQIsdp", 3) => Ok(Protocol::MQIsdp),
             ("MQTT", 4) => Ok(Protocol::MQTT311),
-            _ => Err(io::Error::new(
-                io::ErrorKind::InvalidData,
+            _ => Err(Error::new(
+                ErrorKind::InvalidData,
                 format!("Unsupported protocol {:?} {}", name, level),
             )),
         }
     }
-    pub(crate) fn to_buffer(&self, buffer: &mut BytesMut) -> Result<(), io::Error> {
+    pub(crate) fn to_buffer(&self, buffer: &mut BytesMut) -> Result<(), Error> {
         match self {
             Protocol::MQTT311 => {
                 Ok(buffer.put_slice(&[0u8, 4, 'M' as u8, 'Q' as u8, 'T' as u8, 'T' as u8, 4]))

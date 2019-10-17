@@ -26,4 +26,3 @@ pub use crate::{
 };
 
 const MULTIPLIER: usize = 0x80 * 0x80 * 0x80 * 0x80;
-const MAX_PAYLOAD_SIZE: usize = 268435455;
