@@ -1,11 +1,16 @@
 mod connect;
-mod decoder_test;
-mod encoder_test;
 mod header;
 mod packet;
 mod publish;
 mod subscribe;
 mod utils;
+
+#[cfg(test)]
+mod codec_test;
+#[cfg(test)]
+mod decoder_test;
+#[cfg(test)]
+mod encoder_test;
 
 pub mod decoder;
 pub mod encoder;

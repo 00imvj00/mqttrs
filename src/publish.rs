@@ -33,8 +33,8 @@ impl Publish {
         })
     }
     pub fn to_buffer(&self, buffer: &mut BytesMut) -> Result<(), io::Error> {
+        // Header
         let mut header_u8: u8 = 0b00110000 as u8;
-        let mut length = 0;
         header_u8 |= (self.qos.to_u8()) << 1;
         if self.dup {
             header_u8 |= 0b00001000 as u8;
@@ -42,14 +42,26 @@ impl Publish {
         if self.retain {
             header_u8 |= 0b00000001 as u8;
         };
-
-        let PacketIdentifier(pid) = self.pid.unwrap();
-        length = length + 2 + self.topic_name.len() + 2;
-        length += self.payload.len();
         buffer.put(header_u8);
+
+        // Length: topic (2+len) + pid (0/2) + payload (len)
+        let length = self.topic_name.len()
+            + match self.qos {
+                QoS::AtMostOnce => 2,
+                _ => 4,
+            }
+            + self.payload.len();
         encoder::write_length(length, buffer)?;
+
+        // Topic
         encoder::write_string(self.topic_name.as_ref(), buffer)?;
-        buffer.put_u16_be(pid as u16);
+
+        // Pid
+        if self.qos != QoS::AtMostOnce {
+            buffer.put_u16_be(self.pid.unwrap().0 as u16);
+        }
+
+        // Payload
         buffer.put_slice(self.payload.as_slice());
 
         Ok(())
