@@ -1,7 +1,10 @@
 use bytes::{Buf, BytesMut, IntoBuf};
 use std::io;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+/// Packet Identifier, for ack purposes.
+///
+/// Note that the spec disallows a pid of 0 ([MQTT-2.3.1-1] for mqtt3, [MQTT-2.2.1-3] for mqtt5).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct PacketIdentifier(pub u16);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
