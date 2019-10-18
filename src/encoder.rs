@@ -34,7 +34,7 @@ pub fn encode(packet: &Packet, buffer: &mut BytesMut) -> Result<(), Error> {
             buffer.put(length);
             pid.to_buffer(buffer)
         }
-        Packet::PubComp(pid) => {
+        Packet::Pubcomp(pid) => {
             check_remaining(buffer, 3)?;
             let header_u8 = 0b01110000 as u8;
             let length = 0b00000010 as u8;
@@ -43,9 +43,9 @@ pub fn encode(packet: &Packet, buffer: &mut BytesMut) -> Result<(), Error> {
             pid.to_buffer(buffer)
         }
         Packet::Subscribe(subscribe) => subscribe.to_buffer(buffer),
-        Packet::SubAck(suback) => suback.to_buffer(buffer),
-        Packet::UnSubscribe(unsub) => unsub.to_buffer(buffer),
-        Packet::UnSubAck(pid) => {
+        Packet::Suback(suback) => suback.to_buffer(buffer),
+        Packet::Unsubscribe(unsub) => unsub.to_buffer(buffer),
+        Packet::Unsuback(pid) => {
             check_remaining(buffer, 4)?;
             let header_u8 = 0b10110000 as u8;
             let length = 0b00000010 as u8;
@@ -53,13 +53,13 @@ pub fn encode(packet: &Packet, buffer: &mut BytesMut) -> Result<(), Error> {
             buffer.put(length);
             pid.to_buffer(buffer)
         }
-        Packet::PingReq => {
+        Packet::Pingreq => {
             check_remaining(buffer, 2)?;
             buffer.put(0b11000000 as u8);
             buffer.put(0b00000000 as u8);
             Ok(())
         }
-        Packet::PingResp => {
+        Packet::Pingresp => {
             check_remaining(buffer, 2)?;
             buffer.put(0b11010000 as u8);
             buffer.put(0b00000000 as u8);

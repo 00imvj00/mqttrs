@@ -22,8 +22,8 @@ pub fn decode(buffer: &mut BytesMut) -> Result<Option<Packet>, Error> {
 
 fn read_packet(header: Header, buffer: &mut BytesMut) -> Result<Packet, Error> {
     Ok(match header.packet() {
-        PacketType::PingReq => Packet::PingReq,
-        PacketType::PingResp => Packet::PingResp,
+        PacketType::Pingreq => Packet::Pingreq,
+        PacketType::Pingresp => Packet::Pingresp,
         PacketType::Disconnect => Packet::Disconnect,
         PacketType::Connect => {
             Packet::Connect(Connect::from_buffer(&mut buffer.split_to(header.len()))?)
@@ -38,17 +38,17 @@ fn read_packet(header: Header, buffer: &mut BytesMut) -> Result<Packet, Error> {
         PacketType::Puback => Packet::Puback(Pid::from_buffer(buffer)?),
         PacketType::Pubrec => Packet::Pubrec(Pid::from_buffer(buffer)?),
         PacketType::Pubrel => Packet::Pubrel(Pid::from_buffer(buffer)?),
-        PacketType::PubComp => Packet::PubComp(Pid::from_buffer(buffer)?),
+        PacketType::Pubcomp => Packet::Pubcomp(Pid::from_buffer(buffer)?),
         PacketType::Subscribe => {
             Packet::Subscribe(Subscribe::from_buffer(&mut buffer.split_to(header.len()))?)
         }
-        PacketType::SubAck => {
-            Packet::SubAck(Suback::from_buffer(&mut buffer.split_to(header.len()))?)
+        PacketType::Suback => {
+            Packet::Suback(Suback::from_buffer(&mut buffer.split_to(header.len()))?)
         }
-        PacketType::UnSubscribe => Packet::UnSubscribe(Unsubscribe::from_buffer(
+        PacketType::Unsubscribe => Packet::Unsubscribe(Unsubscribe::from_buffer(
             &mut buffer.split_to(header.len()),
         )?),
-        PacketType::UnSubAck => Packet::UnSubAck(Pid::from_buffer(buffer)?),
+        PacketType::Unsuback => Packet::Unsuback(Pid::from_buffer(buffer)?),
     })
 }
 

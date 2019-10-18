@@ -13,13 +13,10 @@ fn test_connect() {
         password: None,
     };
     let mut buffer = BytesMut::with_capacity(1024);
-    let _ = encoder::encode(&Packet::Connect(packet), &mut buffer);
-    let decoded = decoder::decode(&mut buffer).unwrap();
-    match decoded {
-        Some(Packet::Connect(_c)) => {
-            assert!(true);
-        }
-        _ => assert!(false),
+    encode(&Packet::Connect(packet), &mut buffer).unwrap();
+    match decode(&mut buffer) {
+        Ok(Some(Packet::Connect(_))) => assert!(true),
+        err => assert!(false, err),
     }
 }
 
@@ -30,13 +27,10 @@ fn test_connack() {
         code: ConnectReturnCode::Accepted,
     };
     let mut buffer = BytesMut::with_capacity(1024);
-    let _ = encoder::encode(&Packet::Connack(packet), &mut buffer);
-    let decoded = decoder::decode(&mut buffer).unwrap();
-    match decoded {
-        Some(Packet::Connack(_c)) => {
-            assert!(true);
-        }
-        _ => assert!(false),
+    encode(&Packet::Connack(packet), &mut buffer).unwrap();
+    match decode(&mut buffer) {
+        Ok(Some(Packet::Connack(_))) => assert!(true),
+        err => assert!(false, err),
     }
 }
 
@@ -50,14 +44,10 @@ fn test_publish() {
         payload: vec!['h' as u8, 'e' as u8, 'l' as u8, 'l' as u8, 'o' as u8],
     };
     let mut buffer = BytesMut::with_capacity(1024);
-    let _ = encoder::encode(&Packet::Publish(packet), &mut buffer);
-    let decoded = decoder::decode(&mut buffer).unwrap();
-    println!("{:?}", decoded);
-    match decoded {
-        Some(Packet::Publish(_c)) => {
-            assert!(true);
-        }
-        _ => assert!(false),
+    encode(&Packet::Publish(packet), &mut buffer).unwrap();
+    match decode(&mut buffer) {
+        Ok(Some(Packet::Publish(_))) => assert!(true),
+        err => assert!(false, err),
     }
 }
 
@@ -65,13 +55,10 @@ fn test_publish() {
 fn test_puback() {
     let packet = Packet::Puback(Pid::new(19).unwrap());
     let mut buffer = BytesMut::with_capacity(1024);
-    let _ = encoder::encode(&packet, &mut buffer);
-    let decoded = decoder::decode(&mut buffer).unwrap();
-    match decoded {
-        Some(Packet::Puback(_c)) => {
-            assert!(true);
-        }
-        _ => assert!(false),
+    encode(&packet, &mut buffer).unwrap();
+    match decode(&mut buffer) {
+        Ok(Some(Packet::Puback(_))) => assert!(true),
+        err => assert!(false, err),
     }
 }
 
@@ -79,13 +66,10 @@ fn test_puback() {
 fn test_pubrec() {
     let packet = Packet::Pubrec(Pid::new(19).unwrap());
     let mut buffer = BytesMut::with_capacity(1024);
-    let _ = encoder::encode(&packet, &mut buffer);
-    let decoded = decoder::decode(&mut buffer).unwrap();
-    match decoded {
-        Some(Packet::Pubrec(_c)) => {
-            assert!(true);
-        }
-        _ => assert!(false),
+    encode(&packet, &mut buffer).unwrap();
+    match decode(&mut buffer) {
+        Ok(Some(Packet::Pubrec(_))) => assert!(true),
+        err => assert!(false, err),
     }
 }
 
@@ -93,28 +77,21 @@ fn test_pubrec() {
 fn test_pubrel() {
     let packet = Packet::Pubrel(Pid::new(19).unwrap());
     let mut buffer = BytesMut::with_capacity(1024);
-    let _ = encoder::encode(&packet, &mut buffer);
-    let decoded = decoder::decode(&mut buffer).unwrap();
-    println!("{:?}", decoded);
-    match decoded {
-        Some(Packet::Pubrel(_c)) => {
-            assert!(true);
-        }
-        _ => assert!(false),
+    encode(&packet, &mut buffer).unwrap();
+    match decode(&mut buffer) {
+        Ok(Some(Packet::Pubrel(_))) => assert!(true),
+        err => assert!(false, err),
     }
 }
 
 #[test]
 fn test_pubcomp() {
-    let packet = Packet::PubComp(Pid::new(19).unwrap());
+    let packet = Packet::Pubcomp(Pid::new(19).unwrap());
     let mut buffer = BytesMut::with_capacity(1024);
-    let _ = encoder::encode(&packet, &mut buffer);
-    let decoded = decoder::decode(&mut buffer).unwrap();
-    match decoded {
-        Some(Packet::PubComp(_c)) => {
-            assert!(true);
-        }
-        _ => assert!(false),
+    encode(&packet, &mut buffer).unwrap();
+    match decode(&mut buffer) {
+        Ok(Some(Packet::Pubcomp(_))) => assert!(true),
+        err => assert!(false, err),
     }
 }
 
@@ -129,13 +106,10 @@ fn test_subscribe() {
         topics: vec![stopic],
     };
     let mut buffer = BytesMut::with_capacity(1024);
-    let _ = encoder::encode(&Packet::Subscribe(packet), &mut buffer);
-    let decoded = decoder::decode(&mut buffer).unwrap();
-    match decoded {
-        Some(Packet::Subscribe(_c)) => {
-            assert!(true);
-        }
-        _ => assert!(false),
+    encode(&Packet::Subscribe(packet), &mut buffer).unwrap();
+    match decode(&mut buffer) {
+        Ok(Some(Packet::Subscribe(_))) => assert!(true),
+        err => assert!(false, err),
     }
 }
 
@@ -147,11 +121,10 @@ fn test_suback() {
         return_codes: vec![return_code],
     };
     let mut buffer = BytesMut::with_capacity(1024);
-    let _ = encoder::encode(&Packet::SubAck(packet), &mut buffer);
-    let decoded = decoder::decode(&mut buffer).unwrap();
-    match decoded {
-        Some(Packet::SubAck(_c)) => assert!(true),
-        _ => assert!(false),
+    encode(&Packet::Suback(packet), &mut buffer).unwrap();
+    match decode(&mut buffer) {
+        Ok(Some(Packet::Suback(_))) => assert!(true),
+        err => assert!(false, err),
     }
 }
 
@@ -162,55 +135,50 @@ fn test_unsubscribe() {
         topics: vec!["a/b".to_string()],
     };
     let mut buffer = BytesMut::with_capacity(1024);
-    let _ = encoder::encode(&Packet::UnSubscribe(packet), &mut buffer);
-    let decoded = decoder::decode(&mut buffer).unwrap();
-    match decoded {
-        Some(Packet::UnSubscribe(_c)) => assert!(true),
-        _ => assert!(false),
+    encode(&Packet::Unsubscribe(packet), &mut buffer).unwrap();
+    match decode(&mut buffer) {
+        Ok(Some(Packet::Unsubscribe(_))) => assert!(true),
+        err => assert!(false, err),
     }
 }
 
 #[test]
 fn test_unsuback() {
-    let packet = Packet::UnSubAck(Pid::new(19).unwrap());
+    let packet = Packet::Unsuback(Pid::new(19).unwrap());
     let mut buffer = BytesMut::with_capacity(1024);
-    let _ = encoder::encode(&packet, &mut buffer);
-    let decoded = decoder::decode(&mut buffer).unwrap();
-    match decoded {
-        Some(Packet::UnSubAck(_c)) => assert!(true),
-        _ => assert!(false),
+    encode(&packet, &mut buffer).unwrap();
+    match decode(&mut buffer) {
+        Ok(Some(Packet::Unsuback(_))) => assert!(true),
+        err => assert!(false, err),
     }
 }
 
 #[test]
 fn test_ping_req() {
     let mut buffer = BytesMut::with_capacity(1024);
-    let _ = encoder::encode(&Packet::PingReq, &mut buffer);
-    let decoded = decoder::decode(&mut buffer).unwrap();
-    match decoded {
-        Some(Packet::PingReq) => assert!(true),
-        _ => assert!(false),
+    encode(&Packet::Pingreq, &mut buffer).unwrap();
+    match decode(&mut buffer) {
+        Ok(Some(Packet::Pingreq)) => assert!(true),
+        err => assert!(false, err),
     }
 }
 
 #[test]
 fn test_ping_resp() {
     let mut buffer = BytesMut::with_capacity(1024);
-    let _ = encoder::encode(&Packet::PingResp, &mut buffer);
-    let decoded = decoder::decode(&mut buffer).unwrap();
-    match decoded {
-        Some(Packet::PingResp) => assert!(true),
-        _ => assert!(false),
+    encode(&Packet::Pingresp, &mut buffer).unwrap();
+    match decode(&mut buffer) {
+        Ok(Some(Packet::Pingresp)) => assert!(true),
+        err => assert!(false, err),
     }
 }
 
 #[test]
 fn test_disconnect() {
     let mut buffer = BytesMut::with_capacity(1024);
-    let _ = encoder::encode(&Packet::Disconnect, &mut buffer);
-    let decoded = decoder::decode(&mut buffer).unwrap();
-    match decoded {
-        Some(Packet::Disconnect) => assert!(true),
-        _ => assert!(false),
+    encode(&Packet::Disconnect, &mut buffer).unwrap();
+    match decode(&mut buffer) {
+        Ok(Some(Packet::Disconnect)) => assert!(true),
+        err => assert!(false, err),
     }
 }

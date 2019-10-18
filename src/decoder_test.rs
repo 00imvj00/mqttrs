@@ -61,14 +61,14 @@ fn test_connack() {
 fn test_ping_req() {
     let mut data = BytesMut::from(vec![0b11000000, 0b00000000]);
     let d = decoder::decode(&mut data).unwrap();
-    assert_eq!(d, Some(Packet::PingReq));
+    assert_eq!(d, Some(Packet::Pingreq));
 }
 
 #[test]
 fn test_ping_resp() {
     let mut data = BytesMut::from(vec![0b11010000, 0b00000000]);
     let d = decoder::decode(&mut data).unwrap();
-    assert_eq!(d, Some(Packet::PingResp));
+    assert_eq!(d, Some(Packet::Pingresp));
 }
 
 #[test]
@@ -160,7 +160,7 @@ fn test_pub_comp() {
     let mut data = BytesMut::from(vec![0b01110000, 0b00000010, 0 as u8, 10 as u8]);
     let d = decoder::decode(&mut data).unwrap();
     match d {
-        Some(Packet::PubComp(a)) => assert_eq!(a.get(), 10),
+        Some(Packet::Pubcomp(a)) => assert_eq!(a.get(), 10),
         _ => panic!(),
     };
 }
@@ -191,7 +191,7 @@ fn test_suback() {
     let mut data = BytesMut::from(vec![0b10010000, 3, 0 as u8, 10 as u8, 0b00000010]);
     let d = decoder::decode(&mut data).unwrap();
     match d {
-        Some(Packet::SubAck(s)) => {
+        Some(Packet::Suback(s)) => {
             assert_eq!(s.pid.get(), 10);
             assert_eq!(
                 s.return_codes[0],
@@ -209,7 +209,7 @@ fn test_unsubscribe() {
     ]);
     let d = decoder::decode(&mut data).unwrap();
     match d {
-        Some(Packet::UnSubscribe(a)) => {
+        Some(Packet::Unsubscribe(a)) => {
             assert_eq!(a.pid.get(), 10);
             assert_eq!(a.topics[0], 'a'.to_string());
         }
@@ -222,7 +222,7 @@ fn test_unsub_ack() {
     let mut data = BytesMut::from(vec![0b10110000, 2, 0 as u8, 10 as u8]);
     let d = decoder::decode(&mut data).unwrap();
     match d {
-        Some(Packet::UnSubAck(p)) => {
+        Some(Packet::Unsuback(p)) => {
             assert_eq!(p.get(), 10);
         }
         _ => panic!(),

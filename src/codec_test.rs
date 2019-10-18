@@ -96,7 +96,7 @@ prop_compose! {
 }
 prop_compose! {
     fn stg_pubcomp()(pid in stg_pid()) -> Packet {
-        Packet::PubComp(pid)
+        Packet::Pubcomp(pid)
     }
 }
 prop_compose! {
@@ -106,27 +106,27 @@ prop_compose! {
 }
 prop_compose! {
     fn stg_suback()(pid in stg_pid(), return_codes in vec(stg_subretcode(), 0..300)) -> Packet {
-        Packet::SubAck(Suback{pid: pid, return_codes})
+        Packet::Suback(Suback{pid: pid, return_codes})
     }
 }
 prop_compose! {
     fn stg_unsubscribe()(pid in stg_pid(), topics in vec(stg_topic(), 0..20)) -> Packet {
-        Packet::UnSubscribe(Unsubscribe{pid:pid, topics})
+        Packet::Unsubscribe(Unsubscribe{pid:pid, topics})
     }
 }
 prop_compose! {
     fn stg_unsuback()(pid in stg_pid()) -> Packet {
-        Packet::UnSubAck(pid)
+        Packet::Unsuback(pid)
     }
 }
 prop_compose! {
     fn stg_pingreq()(_ in bool::ANY) -> Packet {
-        Packet::PingReq
+        Packet::Pingreq
     }
 }
 prop_compose! {
     fn stg_pingresp()(_ in bool::ANY) -> Packet {
-        Packet::PingResp
+        Packet::Pingresp
     }
 }
 prop_compose! {
