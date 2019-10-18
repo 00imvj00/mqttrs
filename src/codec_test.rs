@@ -15,8 +15,8 @@ prop_compose! {
     }
 }
 prop_compose! {
-    fn stg_pid()(pid in 1..std::u16::MAX) -> PacketIdentifier {
-        PacketIdentifier::new(pid).unwrap()
+    fn stg_pid()(pid in 1..std::u16::MAX) -> Pid {
+        Pid::new(pid).unwrap()
     }
 }
 prop_compose! {

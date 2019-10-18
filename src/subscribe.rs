@@ -1,4 +1,4 @@
-use crate::{decoder::*, encoder::*, PacketIdentifier, QoS};
+use crate::{decoder::*, encoder::*, Pid, QoS};
 use bytes::{Buf, BufMut, BytesMut, IntoBuf};
 use std::io::Error;
 
@@ -24,25 +24,25 @@ impl SubscribeReturnCodes {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Subscribe {
-    pub pid: PacketIdentifier,
+    pub pid: Pid,
     pub topics: Vec<SubscribeTopic>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Suback {
-    pub pid: PacketIdentifier,
+    pub pid: Pid,
     pub return_codes: Vec<SubscribeReturnCodes>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Unsubscribe {
-    pub pid: PacketIdentifier,
+    pub pid: Pid,
     pub topics: Vec<String>,
 }
 
 impl Subscribe {
     pub(crate) fn from_buffer(buffer: &mut BytesMut) -> Result<Self, Error> {
-        let pid = PacketIdentifier::from_buffer(buffer)?;
+        let pid = Pid::from_buffer(buffer)?;
         let mut topics: Vec<SubscribeTopic> = Vec::new();
         while buffer.len() != 0 {
             let topic_path = read_string(buffer)?;
@@ -80,7 +80,7 @@ impl Subscribe {
 
 impl Unsubscribe {
     pub(crate) fn from_buffer(buffer: &mut BytesMut) -> Result<Self, Error> {
-        let pid = PacketIdentifier::from_buffer(buffer)?;
+        let pid = Pid::from_buffer(buffer)?;
         let mut topics: Vec<String> = Vec::new();
         while buffer.len() != 0 {
             let topic_path = read_string(buffer)?;
@@ -89,10 +89,10 @@ impl Unsubscribe {
         Ok(Unsubscribe { pid, topics })
     }
 
-    pub(crate) fn to_buffer(&self, buffer: &mut  BytesMut) -> Result<(), Error>{
-        let header_u8 : u8 = 0b10100010;
+    pub(crate) fn to_buffer(&self, buffer: &mut BytesMut) -> Result<(), Error> {
+        let header_u8: u8 = 0b10100010;
         let mut length = 2;
-        for topic in &self.topics{
+        for topic in &self.topics {
             length += 2 + topic.len();
         }
         check_remaining(buffer, 1)?;
@@ -100,7 +100,7 @@ impl Unsubscribe {
 
         write_length(length, buffer)?;
         self.pid.to_buffer(buffer)?;
-        for topic in&self.topics{
+        for topic in &self.topics {
             write_string(topic.as_ref(), buffer)?;
         }
         Ok(())
@@ -109,7 +109,7 @@ impl Unsubscribe {
 
 impl Suback {
     pub(crate) fn from_buffer(buffer: &mut BytesMut) -> Result<Self, Error> {
-        let pid = PacketIdentifier::from_buffer(buffer)?;
+        let pid = Pid::from_buffer(buffer)?;
         let mut return_codes: Vec<SubscribeReturnCodes> = Vec::new();
         while buffer.len() != 0 {
             let code = buffer.split_to(1).into_buf().get_u8();

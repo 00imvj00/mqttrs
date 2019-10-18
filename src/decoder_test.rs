@@ -1,9 +1,4 @@
-#![allow(unused_imports)]
-
-use crate::{
-    decoder, Connack, ConnectReturnCode, Packet, PacketIdentifier, QoS, QosPid,
-    SubscribeReturnCodes, SubscribeTopic,
-};
+use crate::*;
 use bytes::BytesMut;
 
 #[test]
@@ -122,7 +117,7 @@ fn test_publish() {
         Some(Packet::Publish(p)) => {
             assert_eq!(p.dup, true);
             assert_eq!(p.retain, true);
-            assert_eq!(p.qospid, QosPid::from_u8u16(2, 10).unwrap());
+            assert_eq!(p.qospid, QosPid::from_u8u16(2, 10));
             assert_eq!(p.topic_name, "a/b");
             assert_eq!(String::from_utf8(p.payload).unwrap(), "hello");
         }

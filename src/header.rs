@@ -38,7 +38,11 @@ impl Header {
     }
 }
 
-/// Protocol version sent at connection.
+/// Protocol version.
+///
+/// Sent in [`Connect`] packet.
+///
+/// [`Connect`]: struct.Connect.html
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Protocol {
     /// [MQTT 3.1.1] is the most commonly implemented version. [MQTT 5] isn't yet supported my by

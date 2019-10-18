@@ -1,4 +1,4 @@
-use crate::{Connack, Connect, PacketIdentifier, Publish, Suback, Subscribe, Unsubscribe};
+use crate::{Connack, Connect, Pid, Publish, Suback, Subscribe, Unsubscribe};
 use std::io::{Error, ErrorKind};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -6,14 +6,14 @@ pub enum Packet {
     Connect(Connect),
     Connack(Connack),
     Publish(Publish),
-    Puback(PacketIdentifier),
-    Pubrec(PacketIdentifier),
-    Pubrel(PacketIdentifier),
-    PubComp(PacketIdentifier),
+    Puback(Pid),
+    Pubrec(Pid),
+    Pubrel(Pid),
+    PubComp(Pid),
     Subscribe(Subscribe),
     SubAck(Suback),
     UnSubscribe(Unsubscribe),
-    UnSubAck(PacketIdentifier),
+    UnSubAck(Pid),
     PingReq,
     PingResp,
     Disconnect,

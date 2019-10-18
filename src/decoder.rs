@@ -35,10 +35,10 @@ fn read_packet(header: Header, buffer: &mut BytesMut) -> Result<Packet, Error> {
             &header,
             &mut buffer.split_to(header.len()),
         )?),
-        PacketType::Puback => Packet::Puback(PacketIdentifier::from_buffer(buffer)?),
-        PacketType::Pubrec => Packet::Pubrec(PacketIdentifier::from_buffer(buffer)?),
-        PacketType::Pubrel => Packet::Pubrel(PacketIdentifier::from_buffer(buffer)?),
-        PacketType::PubComp => Packet::PubComp(PacketIdentifier::from_buffer(buffer)?),
+        PacketType::Puback => Packet::Puback(Pid::from_buffer(buffer)?),
+        PacketType::Pubrec => Packet::Pubrec(Pid::from_buffer(buffer)?),
+        PacketType::Pubrel => Packet::Pubrel(Pid::from_buffer(buffer)?),
+        PacketType::PubComp => Packet::PubComp(Pid::from_buffer(buffer)?),
         PacketType::Subscribe => {
             Packet::Subscribe(Subscribe::from_buffer(&mut buffer.split_to(header.len()))?)
         }
@@ -48,7 +48,7 @@ fn read_packet(header: Header, buffer: &mut BytesMut) -> Result<Packet, Error> {
         PacketType::UnSubscribe => Packet::UnSubscribe(Unsubscribe::from_buffer(
             &mut buffer.split_to(header.len()),
         )?),
-        PacketType::UnSubAck => Packet::UnSubAck(PacketIdentifier::from_buffer(buffer)?),
+        PacketType::UnSubAck => Packet::UnSubAck(Pid::from_buffer(buffer)?),
     })
 }
 
@@ -101,7 +101,6 @@ pub(crate) fn read_bytes(buffer: &mut BytesMut) -> Result<Vec<u8>, Error> {
         Ok(buffer.split_to(length as usize).to_vec())
     }
 }
-
 
 #[cfg(test)]
 mod test {

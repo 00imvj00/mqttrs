@@ -1,10 +1,4 @@
-#[allow(unused_imports)]
-use crate::{
-    decoder, encoder, Connack, Connect, ConnectReturnCode, Packet, PacketIdentifier, Protocol,
-    Publish, QoS, QosPid, Suback, Subscribe, SubscribeReturnCodes, SubscribeTopic, Unsubscribe,
-};
-
-#[allow(unused_imports)]
+use crate::*;
 use bytes::BytesMut;
 
 #[test]
@@ -50,7 +44,7 @@ fn test_connack() {
 fn test_publish() {
     let packet = Publish {
         dup: false,
-        qospid: QosPid::from_u8u16(2, 10).unwrap(),
+        qospid: QosPid::from_u8u16(2, 10),
         retain: true,
         topic_name: "asdf".to_string(),
         payload: vec!['h' as u8, 'e' as u8, 'l' as u8, 'l' as u8, 'o' as u8],
@@ -69,7 +63,7 @@ fn test_publish() {
 
 #[test]
 fn test_puback() {
-    let packet = Packet::Puback(PacketIdentifier::new(19).unwrap());
+    let packet = Packet::Puback(Pid::new(19).unwrap());
     let mut buffer = BytesMut::with_capacity(1024);
     let _ = encoder::encode(&packet, &mut buffer);
     let decoded = decoder::decode(&mut buffer).unwrap();
@@ -83,7 +77,7 @@ fn test_puback() {
 
 #[test]
 fn test_pubrec() {
-    let packet = Packet::Pubrec(PacketIdentifier::new(19).unwrap());
+    let packet = Packet::Pubrec(Pid::new(19).unwrap());
     let mut buffer = BytesMut::with_capacity(1024);
     let _ = encoder::encode(&packet, &mut buffer);
     let decoded = decoder::decode(&mut buffer).unwrap();
@@ -97,7 +91,7 @@ fn test_pubrec() {
 
 #[test]
 fn test_pubrel() {
-    let packet = Packet::Pubrel(PacketIdentifier::new(19).unwrap());
+    let packet = Packet::Pubrel(Pid::new(19).unwrap());
     let mut buffer = BytesMut::with_capacity(1024);
     let _ = encoder::encode(&packet, &mut buffer);
     let decoded = decoder::decode(&mut buffer).unwrap();
@@ -112,7 +106,7 @@ fn test_pubrel() {
 
 #[test]
 fn test_pubcomp() {
-    let packet = Packet::PubComp(PacketIdentifier::new(19).unwrap());
+    let packet = Packet::PubComp(Pid::new(19).unwrap());
     let mut buffer = BytesMut::with_capacity(1024);
     let _ = encoder::encode(&packet, &mut buffer);
     let decoded = decoder::decode(&mut buffer).unwrap();
@@ -131,7 +125,7 @@ fn test_subscribe() {
         qos: QoS::ExactlyOnce,
     };
     let packet = Subscribe {
-        pid: PacketIdentifier::new(345).unwrap(),
+        pid: Pid::new(345).unwrap(),
         topics: vec![stopic],
     };
     let mut buffer = BytesMut::with_capacity(1024);
@@ -149,7 +143,7 @@ fn test_subscribe() {
 fn test_suback() {
     let return_code = SubscribeReturnCodes::Success(QoS::ExactlyOnce);
     let packet = Suback {
-        pid: PacketIdentifier::new(12321).unwrap(),
+        pid: Pid::new(12321).unwrap(),
         return_codes: vec![return_code],
     };
     let mut buffer = BytesMut::with_capacity(1024);
@@ -164,7 +158,7 @@ fn test_suback() {
 #[test]
 fn test_unsubscribe() {
     let packet = Unsubscribe {
-        pid: PacketIdentifier::new(12321).unwrap(),
+        pid: Pid::new(12321).unwrap(),
         topics: vec!["a/b".to_string()],
     };
     let mut buffer = BytesMut::with_capacity(1024);
@@ -178,7 +172,7 @@ fn test_unsubscribe() {
 
 #[test]
 fn test_unsuback() {
-    let packet = Packet::UnSubAck(PacketIdentifier::new(19).unwrap());
+    let packet = Packet::UnSubAck(Pid::new(19).unwrap());
     let mut buffer = BytesMut::with_capacity(1024);
     let _ = encoder::encode(&packet, &mut buffer);
     let decoded = decoder::decode(&mut buffer).unwrap();

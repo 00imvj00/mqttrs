@@ -1,4 +1,4 @@
-use crate::{decoder::*, encoder::*, header::Header, PacketIdentifier, QoS, QosPid};
+use crate::{decoder::*, encoder::*, header::Header, Pid, QoS, QosPid};
 use bytes::{BufMut, BytesMut};
 use std::io::Error;
 
@@ -17,8 +17,8 @@ impl Publish {
 
         let qospid = match header.qos()? {
             QoS::AtMostOnce => QosPid::AtMostOnce,
-            QoS::AtLeastOnce => QosPid::AtLeastOnce(PacketIdentifier::from_buffer(buffer)?),
-            QoS::ExactlyOnce => QosPid::ExactlyOnce(PacketIdentifier::from_buffer(buffer)?),
+            QoS::AtLeastOnce => QosPid::AtLeastOnce(Pid::from_buffer(buffer)?),
+            QoS::ExactlyOnce => QosPid::ExactlyOnce(Pid::from_buffer(buffer)?),
         };
 
         let payload = buffer.to_vec();
