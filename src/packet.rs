@@ -1,4 +1,4 @@
-use crate::{Connack, Connect, Pid, Publish, Suback, Subscribe, Unsubscribe};
+use crate::*;
 use std::io::{Error, ErrorKind};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -38,6 +38,18 @@ impl Packet {
         }
     }
 }
+macro_rules! packet_from {
+    ($($t:ident),+) => {
+        $(
+            impl From<$t> for Packet {
+                fn from(p: $t) -> Self {
+                    Packet::$t(p)
+                }
+            }
+        )+
+    }
+}
+packet_from!(Connect, Connack, Publish, Subscribe, Suback, Unsubscribe);
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum PacketType {

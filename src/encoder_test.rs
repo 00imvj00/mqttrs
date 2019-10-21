@@ -13,7 +13,7 @@ fn test_connect() {
         password: None,
     };
     let mut buffer = BytesMut::with_capacity(1024);
-    encode(&Packet::Connect(packet), &mut buffer).unwrap();
+    encode(&packet.into(), &mut buffer).unwrap();
     match decode(&mut buffer) {
         Ok(Some(Packet::Connect(_))) => assert!(true),
         err => assert!(false, err),
@@ -27,7 +27,7 @@ fn test_connack() {
         code: ConnectReturnCode::Accepted,
     };
     let mut buffer = BytesMut::with_capacity(1024);
-    encode(&Packet::Connack(packet), &mut buffer).unwrap();
+    encode(&packet.into(), &mut buffer).unwrap();
     match decode(&mut buffer) {
         Ok(Some(Packet::Connack(_))) => assert!(true),
         err => assert!(false, err),
@@ -44,7 +44,7 @@ fn test_publish() {
         payload: vec!['h' as u8, 'e' as u8, 'l' as u8, 'l' as u8, 'o' as u8],
     };
     let mut buffer = BytesMut::with_capacity(1024);
-    encode(&Packet::Publish(packet), &mut buffer).unwrap();
+    encode(&packet.into(), &mut buffer).unwrap();
     match decode(&mut buffer) {
         Ok(Some(Packet::Publish(_))) => assert!(true),
         err => assert!(false, err),

@@ -69,7 +69,6 @@ impl Connect {
         })
     }
     pub(crate) fn to_buffer(&self, buffer: &mut BytesMut) -> Result<(), Error> {
-
         let header_u8: u8 = 0b00010000;
         let mut length: usize = 6 + 1 + 1; //NOTE: protocol_name(6) + protocol_level(1) + flags(1);
         let mut connect_flags: u8 = 0b00000000;
@@ -98,7 +97,7 @@ impl Connect {
             length += last_will.topic.len();
             length += 4;
         };
-        check_remaining(buffer, length+1)?;
+        check_remaining(buffer, length + 1)?;
 
         //NOTE: putting data into buffer.
         buffer.put(header_u8);
