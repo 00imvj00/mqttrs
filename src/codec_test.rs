@@ -1,4 +1,5 @@
 use crate::*;
+use bytes::BufMut;
 use bytes::BytesMut;
 use proptest::{bool, collection::vec, num::*, prelude::*};
 use std::io::ErrorKind;
@@ -91,7 +92,7 @@ prop_compose! {
 }
 prop_compose! {
     fn stg_pubrel()(pid in stg_pid()) -> Packet {
-        Packet::Puback(pid)
+        Packet::Pubrel(pid)
     }
 }
 prop_compose! {
@@ -145,14 +146,14 @@ macro_rules! impl_proptests {
             fn $name(pkt in $stg()) {
                 // Encode the packet
                 let mut buf = BytesMut::with_capacity(10240);
-                let res = encoder::encode(&pkt.clone(), &mut buf);
+                let res = encode(&pkt, &mut buf);
                 prop_assert!(res.is_ok(), "encode({:?}) -> {:?}", pkt, res);
                 prop_assert!(buf.len() >= 2, "buffer too small: {:?}", buf); //PING is 2 bytes
                 prop_assert!(buf[0] >> 4 > 0 && buf[0] >> 4 < 16, "bad packet type {:?}", buf);
 
                 // Check that decoding returns the original
-                let mut encoded = buf.clone();
-                let decoded = decoder::decode(&mut buf);
+                let encoded = buf.clone();
+                let decoded = decode(&mut buf);
                 let ok = match &decoded {
                     Ok(Some(p)) if *p == pkt => true,
                     _other => false,
@@ -161,23 +162,23 @@ macro_rules! impl_proptests {
                 prop_assert!(buf.is_empty(), "Buffer not empty: {:?}", buf);
 
                 // Check that decoding a partial packet returns Ok(None)
-                encoded.split_off(encoded.len() - 1);
-                let decoded = decoder::decode(&mut encoded).unwrap();
+                let decoded = decode(&mut encoded.clone().split_off(encoded.len() - 1)).unwrap();
                 prop_assert!(decoded.is_none(), "partial decode {:?} -> {:?}", encoded, decoded);
 
                 // Check that encoding into a small buffer fails cleanly
                 buf.clear();
-                buf.split_off(encoded.len()+1);
-                prop_assert!(encoder::encode(&pkt.clone(), &mut buf).is_ok(), "exact buffer capacity {}", buf.capacity());
-                loop {
+                buf.split_off(encoded.len());
+                prop_assert!(encoded.len() == buf.remaining_mut() && buf.is_empty(),
+                             "Wrong buffer init1 {}/{}/{}", encoded.len(), buf.remaining_mut(), buf.is_empty());
+                prop_assert!(encode(&pkt, &mut buf).is_ok(), "exact buffer capacity {}", buf.capacity());
+                for l in (0..encoded.len()).rev() {
                     buf.clear();
-                    buf.split_off(buf.capacity()-1);
+                    buf.split_to(1);
+                    prop_assert!(l == buf.remaining_mut() && buf.is_empty(),
+                                 "Wrong buffer init2 {}/{}/{}", l, buf.remaining_mut(), buf.is_empty());
                     prop_assert_eq!(ErrorKind::WriteZero,
-                                    encoder::encode(&pkt.clone(), &mut buf).unwrap_err().kind(),
+                                    encode(&pkt, &mut buf).unwrap_err().kind(),
                                     "small buffer capacity {}/{}", buf.capacity(), encoded.len());
-                    if buf.capacity() == 0 {
-                        break;
-                    }
                 }
             }
         }

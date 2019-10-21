@@ -35,7 +35,7 @@ pub fn encode(packet: &Packet, buffer: &mut BytesMut) -> Result<(), Error> {
             pid.to_buffer(buffer)
         }
         Packet::Pubcomp(pid) => {
-            check_remaining(buffer, 3)?;
+            check_remaining(buffer, 4)?;
             let header_u8 = 0b01110000 as u8;
             let length = 0b00000010 as u8;
             buffer.put(header_u8);

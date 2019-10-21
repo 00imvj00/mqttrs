@@ -1,3 +1,4 @@
+//TODO: Should be able to directly `assert_eq!(..., decode(&mut data));` when we switch to our own error type that implements `Eq`.
 use crate::*;
 use bytes::BytesMut;
 
@@ -15,10 +16,8 @@ fn test_half_connect() {
               // 0x00, 0x04, 'r' as u8, 'u' as u8, 's' as u8, 't' as u8, // username = 'rust'
               // 0x00, 0x02, 'm' as u8, 'q' as u8, // password = 'mq'
     ]);
-    let length = data.len();
-    let d = decoder::decode(&mut data).unwrap();
-    assert_eq!(d, None);
-    assert_eq!(length, 12);
+    assert_eq!(None, decode(&mut data).unwrap());
+    assert_eq!(12, data.len());
 }
 
 #[test]
@@ -34,8 +33,7 @@ fn test_connect() {
         0x00, 0x04, 'r' as u8, 'u' as u8, 's' as u8, 't' as u8, // username = 'rust'
         0x00, 0x02, 'm' as u8, 'q' as u8, // password = 'mq'
     ]);
-    let d = decoder::decode(&mut data).unwrap();
-    assert_ne!(d, None);
+    assert!(decode(&mut data).unwrap().is_some());
     assert_eq!(data.len(), 0);
 }
 
@@ -92,7 +90,6 @@ fn test_publish() {
     let d2 = decoder::decode(&mut data).unwrap();
     let d3 = decoder::decode(&mut data).unwrap();
 
-    println!("{:?}", d1);
     match d1 {
         Some(Packet::Publish(p)) => {
             assert_eq!(p.dup, false);

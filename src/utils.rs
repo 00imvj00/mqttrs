@@ -1,4 +1,3 @@
-use crate::encoder::check_remaining;
 use bytes::{Buf, BufMut, BytesMut, IntoBuf};
 use std::{
     io::{Error, ErrorKind},
@@ -37,7 +36,6 @@ impl Pid {
         Self::new(buf.split_to(2).into_buf().get_u16_be())
     }
     pub(crate) fn to_buffer(self, buf: &mut BytesMut) -> Result<(), Error> {
-        check_remaining(buf, 2)?;
         Ok(buf.put_u16_be(self.get()))
     }
 }
