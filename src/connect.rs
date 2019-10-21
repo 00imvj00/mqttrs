@@ -1,6 +1,5 @@
-use crate::{decoder::*, encoder::*, ConnectReturnCode, LastWill, Protocol, QoS};
+use crate::{decoder::*, encoder::*, *};
 use bytes::{Buf, BufMut, BytesMut, IntoBuf};
-use std::io::Error;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Connect {

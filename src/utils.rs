@@ -1,8 +1,58 @@
 use bytes::{Buf, BufMut, BytesMut, IntoBuf};
 use std::{
-    io::{Error, ErrorKind},
+    error::Error as ErrorTrait,
+    fmt,
+    io::{Error as IoError, ErrorKind},
     num::NonZeroU16,
 };
+
+/// Errors returned by [`encode()`] and [`decode()`].
+///
+/// [`encode()`]: fn.encode.html
+/// [`decode()`]: fn.decode.html
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Error {
+    /// Not enough data in the read buffer.
+    ///
+    /// Do not treat this as a fatal error. Read more data into the buffer and try `decode()` again.
+    BufferIncomplete,
+    /// Not enough space in the write buffer.
+    ///
+    /// It is the caller's responsiblity to pass a big enough buffer to `encode()`.
+    BufferFull,
+    /// Tried to encode or decode a ProcessIdentifier==0.
+    InvalidPid,
+    /// Tried to decode a QoS > 2.
+    InvalidQos(u8),
+    /// Tried to decode a ConnectReturnCode > 5.
+    InvalidConnectReturnCode(u8),
+    /// Tried to decode an unknown protocol.
+    InvalidProtocol(String, u8),
+    /// Tried to decode an invalid packet type for this protocol.
+    InvalidPacket(u8),
+    /// Trying to encode/decode an invalid length.
+    ///
+    /// The difference with `BufferFull`/`BufferIncomplete` is that it refers to an invalid/corrupt
+    /// length rather than a buffer size issue.
+    InvalidLength(usize),
+    /// Trying to decode a non-utf8 string.
+    InvalidString(std::str::Utf8Error),
+}
+impl ErrorTrait for Error {}
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+impl From<Error> for IoError {
+    fn from(err: Error) -> IoError {
+        match err {
+            Error::BufferFull => IoError::new(ErrorKind::WriteZero, err),
+            Error::BufferIncomplete => IoError::new(ErrorKind::UnexpectedEof, err),
+            _ => IoError::new(ErrorKind::InvalidData, err),
+        }
+    }
+}
 
 /// Packet Identifier.
 ///
@@ -26,7 +76,7 @@ impl Pid {
     pub fn new(u: u16) -> Result<Self, Error> {
         match NonZeroU16::new(u) {
             Some(nz) => Ok(Pid(nz)),
-            None => Err(Error::new(ErrorKind::InvalidData, "Pid == 0")),
+            None => Err(Error::InvalidPid),
         }
     }
     pub fn get(self) -> u16 {
@@ -79,7 +129,7 @@ impl QoS {
             0 => Ok(QoS::AtMostOnce),
             1 => Ok(QoS::AtLeastOnce),
             2 => Ok(QoS::ExactlyOnce),
-            _ => Err(Error::new(ErrorKind::InvalidData, "Qos > 2")),
+            n => Err(Error::InvalidQos(n)),
         }
     }
     #[inline]
@@ -169,7 +219,7 @@ impl ConnectReturnCode {
             3 => Ok(ConnectReturnCode::ServerUnavailable),
             4 => Ok(ConnectReturnCode::BadUsernamePassword),
             5 => Ok(ConnectReturnCode::NotAuthorized),
-            _ => Err(Error::new(ErrorKind::InvalidInput, "ConnectReturnCode > 5")),
+            n => Err(Error::InvalidConnectReturnCode(n)),
         }
     }
 }

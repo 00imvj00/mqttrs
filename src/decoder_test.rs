@@ -1,4 +1,3 @@
-//TODO: Should be able to directly `assert_eq!(..., decode(&mut data));` when we switch to our own error type that implements `Eq`.
 use crate::*;
 use bytes::BytesMut;
 
@@ -16,7 +15,7 @@ fn test_half_connect() {
               // 0x00, 0x04, 'r' as u8, 'u' as u8, 's' as u8, 't' as u8, // username = 'rust'
               // 0x00, 0x02, 'm' as u8, 'q' as u8, // password = 'mq'
     ]);
-    assert_eq!(None, decode(&mut data).unwrap());
+    assert_eq!(Ok(None), decode(&mut data));
     assert_eq!(12, data.len());
 }
 
@@ -33,7 +32,21 @@ fn test_connect() {
         0x00, 0x04, 'r' as u8, 'u' as u8, 's' as u8, 't' as u8, // username = 'rust'
         0x00, 0x02, 'm' as u8, 'q' as u8, // password = 'mq'
     ]);
-    assert!(decode(&mut data).unwrap().is_some());
+    let pkt = Connect {
+        protocol: Protocol::MQTT311,
+        keep_alive: 10,
+        client_id: "test".into(),
+        clean_session: true,
+        last_will: Some(LastWill {
+            topic: "/a".into(),
+            message: "offline".into(),
+            qos: QoS::AtLeastOnce,
+            retain: false,
+        }),
+        username: Some("rust".into()),
+        password: Some("mq".into()),
+    };
+    assert_eq!(Ok(Some(pkt.into())), decode(&mut data));
     assert_eq!(data.len(), 0);
 }
 
@@ -58,22 +71,19 @@ fn test_connack() {
 #[test]
 fn test_ping_req() {
     let mut data = BytesMut::from(vec![0b11000000, 0b00000000]);
-    let d = decoder::decode(&mut data).unwrap();
-    assert_eq!(d, Some(Packet::Pingreq));
+    assert_eq!(Ok(Some(Packet::Pingreq)), decode(&mut data));
 }
 
 #[test]
 fn test_ping_resp() {
     let mut data = BytesMut::from(vec![0b11010000, 0b00000000]);
-    let d = decoder::decode(&mut data).unwrap();
-    assert_eq!(d, Some(Packet::Pingresp));
+    assert_eq!(Ok(Some(Packet::Pingresp)), decode(&mut data));
 }
 
 #[test]
 fn test_disconnect() {
     let mut data = BytesMut::from(vec![0b11100000, 0b00000000]);
-    let d = decoder::decode(&mut data).unwrap();
-    assert_eq!(d, Some(Packet::Disconnect));
+    assert_eq!(Ok(Some(Packet::Disconnect)), decode(&mut data));
 }
 
 #[test]
@@ -86,79 +96,72 @@ fn test_publish() {
         0b00111101, 12, 0x00, 0x03, 'a' as u8, '/' as u8, 'b' as u8, 0 as u8, 10 as u8, 'h' as u8,
         'e' as u8, 'l' as u8, 'l' as u8, 'o' as u8,
     ]);
-    let d1 = decoder::decode(&mut data).unwrap();
-    let d2 = decoder::decode(&mut data).unwrap();
-    let d3 = decoder::decode(&mut data).unwrap();
 
-    match d1 {
-        Some(Packet::Publish(p)) => {
+    match decode(&mut data) {
+        Ok(Some(Packet::Publish(p))) => {
             assert_eq!(p.dup, false);
             assert_eq!(p.retain, false);
             assert_eq!(p.qospid, QosPid::AtMostOnce);
             assert_eq!(p.topic_name, "a/b");
             assert_eq!(String::from_utf8(p.payload).unwrap(), "hello");
         }
-        _ => panic!("Should not be None"),
+        other => panic!("Failed decode: {:?}", other),
     }
-    match d2 {
-        Some(Packet::Publish(p)) => {
+    match decode(&mut data) {
+        Ok(Some(Packet::Publish(p))) => {
             assert_eq!(p.dup, true);
             assert_eq!(p.retain, false);
             assert_eq!(p.qospid, QosPid::AtMostOnce);
             assert_eq!(p.topic_name, "a/b");
             assert_eq!(String::from_utf8(p.payload).unwrap(), "hello");
         }
-        _ => panic!("Should not be None"),
+        other => panic!("Failed decode: {:?}", other),
     }
-    match d3 {
-        Some(Packet::Publish(p)) => {
+    match decode(&mut data) {
+        Ok(Some(Packet::Publish(p))) => {
             assert_eq!(p.dup, true);
             assert_eq!(p.retain, true);
             assert_eq!(p.qospid, QosPid::from_u8u16(2, 10));
             assert_eq!(p.topic_name, "a/b");
             assert_eq!(String::from_utf8(p.payload).unwrap(), "hello");
         }
-        _ => panic!("Should not be None"),
+        other => panic!("Failed decode: {:?}", other),
     }
 }
 
 #[test]
 fn test_pub_ack() {
     let mut data = BytesMut::from(vec![0b01000000, 0b00000010, 0 as u8, 10 as u8]);
-    let d = decoder::decode(&mut data).unwrap();
-    match d {
-        Some(Packet::Puback(a)) => assert_eq!(a.get(), 10),
-        _ => panic!(),
+    match decode(&mut data) {
+        Ok(Some(Packet::Puback(a))) => assert_eq!(a.get(), 10),
+        other => panic!("Failed decode: {:?}", other),
     };
 }
 
 #[test]
 fn test_pub_rec() {
     let mut data = BytesMut::from(vec![0b01010000, 0b00000010, 0 as u8, 10 as u8]);
-    let d = decoder::decode(&mut data).unwrap();
-    match d {
-        Some(Packet::Pubrec(a)) => assert_eq!(a.get(), 10),
-        _ => panic!(),
+    match decode(&mut data) {
+        Ok(Some(Packet::Pubrec(a))) => assert_eq!(a.get(), 10),
+        other => panic!("Failed decode: {:?}", other),
     };
 }
 
 #[test]
 fn test_pub_rel() {
     let mut data = BytesMut::from(vec![0b01100010, 0b00000010, 0 as u8, 10 as u8]);
-    let d = decoder::decode(&mut data).unwrap();
-    match d {
-        Some(Packet::Pubrel(a)) => assert_eq!(a.get(), 10),
-        _ => panic!(),
+    match decode(&mut data) {
+        Ok(Some(Packet::Pubrel(a))) => assert_eq!(a.get(), 10),
+        other => panic!("Failed decode: {:?}", other),
     };
 }
 
 #[test]
 fn test_pub_comp() {
     let mut data = BytesMut::from(vec![0b01110000, 0b00000010, 0 as u8, 10 as u8]);
-    let d = decoder::decode(&mut data).unwrap();
-    match d {
-        Some(Packet::Pubcomp(a)) => assert_eq!(a.get(), 10),
-        _ => panic!(),
+    match decode(&mut data) {
+        Ok(Some(Packet::Pubcomp(a))) => assert_eq!(a.get(), 10),
+        other => panic!("Failed decode: {:?}", other),
     };
 }
 
@@ -168,9 +171,8 @@ fn test_subscribe() {
         0b10000010, 8, 0 as u8, 10 as u8, 0 as u8, 3 as u8, 'a' as u8, '/' as u8, 'b' as u8,
         0 as u8,
     ]);
-    let d = decoder::decode(&mut data).unwrap();
-    match d {
-        Some(Packet::Subscribe(s)) => {
+    match decode(&mut data) {
+        Ok(Some(Packet::Subscribe(s))) => {
             assert_eq!(s.pid.get(), 10);
             let t = SubscribeTopic {
                 topic_path: "a/b".to_string(),
@@ -178,7 +180,7 @@ fn test_subscribe() {
             };
             assert_eq!(s.topics[0], t);
         }
-        _ => panic!(),
+        other => panic!("Failed decode: {:?}", other),
     }
 }
 
@@ -186,16 +188,15 @@ fn test_subscribe() {
 
 fn test_suback() {
     let mut data = BytesMut::from(vec![0b10010000, 3, 0 as u8, 10 as u8, 0b00000010]);
-    let d = decoder::decode(&mut data).unwrap();
-    match d {
-        Some(Packet::Suback(s)) => {
+    match decode(&mut data) {
+        Ok(Some(Packet::Suback(s))) => {
             assert_eq!(s.pid.get(), 10);
             assert_eq!(
                 s.return_codes[0],
                 SubscribeReturnCodes::Success(QoS::ExactlyOnce)
             );
         }
-        _ => panic!(),
+        other => panic!("Failed decode: {:?}", other),
     }
 }
 
@@ -204,24 +205,22 @@ fn test_unsubscribe() {
     let mut data = BytesMut::from(vec![
         0b10100010, 5, 0 as u8, 10 as u8, 0 as u8, 1 as u8, 'a' as u8,
     ]);
-    let d = decoder::decode(&mut data).unwrap();
-    match d {
-        Some(Packet::Unsubscribe(a)) => {
+    match decode(&mut data) {
+        Ok(Some(Packet::Unsubscribe(a))) => {
             assert_eq!(a.pid.get(), 10);
             assert_eq!(a.topics[0], 'a'.to_string());
         }
-        _ => panic!(),
+        other => panic!("Failed decode: {:?}", other),
     }
 }
 
 #[test]
 fn test_unsub_ack() {
     let mut data = BytesMut::from(vec![0b10110000, 2, 0 as u8, 10 as u8]);
-    let d = decoder::decode(&mut data).unwrap();
-    match d {
-        Some(Packet::Unsuback(p)) => {
+    match decode(&mut data) {
+        Ok(Some(Packet::Unsuback(p))) => {
             assert_eq!(p.get(), 10);
         }
-        _ => panic!(),
+        other => panic!("Failed decode: {:?}", other),
     }
 }

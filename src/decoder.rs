@@ -1,6 +1,5 @@
 use crate::{header::Header, *};
 use bytes::{Buf, BytesMut, IntoBuf};
-use std::io::{Error, ErrorKind};
 
 /// Decode network bytes into a [Packet] enum.
 ///
@@ -80,24 +79,22 @@ fn read_length(buffer: &BytesMut, mut pos: usize) -> Option<(usize, usize)> {
 }
 
 pub(crate) fn read_string(buffer: &mut BytesMut) -> Result<String, Error> {
-    String::from_utf8(read_bytes(buffer)?)
-        .map_err(|_| Error::new(ErrorKind::InvalidData, "Non-utf8 string"))
+    String::from_utf8(read_bytes(buffer)?).map_err(|e| Error::InvalidString(e.utf8_error()))
 }
 
 pub(crate) fn read_bytes(buffer: &mut BytesMut) -> Result<Vec<u8>, Error> {
-    let length = buffer.split_to(2).into_buf().get_u16_be();
-    if length as usize > buffer.len() {
-        Err(Error::new(ErrorKind::InvalidData, "length > buffer.len()"))
+    let len = buffer.split_to(2).into_buf().get_u16_be() as usize;
+    if len > buffer.len() {
+        Err(Error::InvalidLength(len))
     } else {
-        Ok(buffer.split_to(length as usize).to_vec())
+        Ok(buffer.split_to(len).to_vec())
     }
 }
 
 #[cfg(test)]
 mod test {
-    use crate::decode;
+    use crate::*;
     use bytes::BytesMut;
-    use std::io::ErrorKind;
 
     #[test]
     fn non_utf8_string() {
@@ -106,10 +103,10 @@ mod test {
             0x00, 0x03, 'a' as u8, '/' as u8, 0xc0 as u8, // Topic with Invalid utf8
             'h' as u8, 'e' as u8, 'l' as u8, 'l' as u8, 'o' as u8, // payload
         ]);
-        assert_eq!(
-            ErrorKind::InvalidData,
-            decode(&mut data).unwrap_err().kind()
-        );
+        assert!(match decode(&mut data) {
+            Err(Error::InvalidString(_)) => true,
+            _ => false,
+        });
     }
 
     /// Validity of remaining_len is tested exhaustively elsewhere, this is for inner lengths, which
@@ -124,9 +121,6 @@ mod test {
             0x00, 0x04, 't' as u8, 'e' as u8, 's' as u8, 't' as u8, // client_id
             0x00, 0x03, 'm' as u8, 'q' as u8, // password with invalid length
         ]);
-        assert_eq!(
-            ErrorKind::InvalidData,
-            decode(&mut data).unwrap_err().kind()
-        );
+        assert_eq!(Err(Error::InvalidLength(3)), decode(&mut data));
     }
 }

@@ -1,6 +1,5 @@
-use crate::{decoder::*, encoder::*, Pid, QoS};
+use crate::{decoder::*, encoder::*, *};
 use bytes::{Buf, BufMut, BytesMut, IntoBuf};
-use std::io::Error;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct SubscribeTopic {

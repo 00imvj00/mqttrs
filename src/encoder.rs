@@ -1,6 +1,5 @@
-use crate::Packet;
+use crate::{Error, Packet};
 use bytes::{BufMut, BytesMut};
-use std::io::{Error, ErrorKind};
 
 /// Encode a [Packet] enum into a buffer.
 ///
@@ -78,7 +77,7 @@ pub fn encode(packet: &Packet, buffer: &mut BytesMut) -> Result<(), Error> {
 /// Result::Err instead of panicking.
 pub(crate) fn check_remaining(buffer: &BytesMut, len: usize) -> Result<(), Error> {
     if buffer.remaining_mut() < len {
-        Err(Error::new(ErrorKind::WriteZero, "buffer full"))
+        Err(Error::BufferFull)
     } else {
         Ok(())
     }
@@ -91,7 +90,7 @@ pub(crate) fn write_length(len: usize, buffer: &mut BytesMut) -> Result<(), Erro
         128..=16383 => check_remaining(buffer, len + 2)?,
         16384..=2097151 => check_remaining(buffer, len + 3)?,
         2097152..=268435455 => check_remaining(buffer, len + 4)?,
-        _ => return Err(Error::new(ErrorKind::PermissionDenied, "data too big")),
+        _ => return Err(Error::InvalidLength(len)),
     }
     let mut done = false;
     let mut x = len;

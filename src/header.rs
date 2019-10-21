@@ -1,6 +1,5 @@
-use crate::{PacketType, QoS};
+use crate::{Error, PacketType, QoS};
 use bytes::{BufMut, BytesMut};
-use std::io::{Error, ErrorKind};
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct Header {
@@ -61,10 +60,7 @@ impl Protocol {
         match (name, level) {
             ("MQIsdp", 3) => Ok(Protocol::MQIsdp),
             ("MQTT", 4) => Ok(Protocol::MQTT311),
-            _ => Err(Error::new(
-                ErrorKind::InvalidData,
-                format!("Unsupported protocol {:?} {}", name, level),
-            )),
+            _ => Err(Error::InvalidProtocol(name.into(), level)),
         }
     }
     pub(crate) fn to_buffer(&self, buffer: &mut BytesMut) -> Result<(), Error> {

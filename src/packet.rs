@@ -1,5 +1,4 @@
 use crate::*;
-use std::io::{Error, ErrorKind};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Packet {
@@ -86,10 +85,7 @@ impl PacketType {
             12 => Ok(PacketType::Pingreq),
             13 => Ok(PacketType::Pingresp),
             14 => Ok(PacketType::Disconnect),
-            _ => Err(Error::new(
-                ErrorKind::InvalidInput,
-                "Unsupported packet type",
-            )),
+            n => Err(Error::InvalidPacket(n)),
         }
     }
 }
