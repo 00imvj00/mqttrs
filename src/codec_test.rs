@@ -175,7 +175,7 @@ macro_rules! impl_proptests {
                     buf.split_to(1);
                     prop_assert!(l == buf.remaining_mut() && buf.is_empty(),
                                  "Wrong buffer init2 {}/{}/{}", l, buf.remaining_mut(), buf.is_empty());
-                    prop_assert_eq!(Err(Error::BufferFull), encode(&pkt, &mut buf),
+                    prop_assert_eq!(Err(Error::WriteZero), encode(&pkt, &mut buf),
                                     "small buffer capacity {}/{}", buf.capacity(), encoded.len());
                 }
             }

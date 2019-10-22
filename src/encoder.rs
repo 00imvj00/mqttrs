@@ -77,7 +77,7 @@ pub fn encode(packet: &Packet, buffer: &mut BytesMut) -> Result<(), Error> {
 /// Result::Err instead of panicking.
 pub(crate) fn check_remaining(buffer: &BytesMut, len: usize) -> Result<(), Error> {
     if buffer.remaining_mut() < len {
-        Err(Error::BufferFull)
+        Err(Error::WriteZero)
     } else {
         Ok(())
     }
