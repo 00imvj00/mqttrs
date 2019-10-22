@@ -37,6 +37,10 @@ pub enum Error {
     InvalidLength(usize),
     /// Trying to decode a non-utf8 string.
     InvalidString(std::str::Utf8Error),
+    /// Catch-all error when converting from `std::io::Error`.
+    ///
+    /// You'll hopefully never see this.
+    IoError(ErrorKind, String),
 }
 impl ErrorTrait for Error {}
 impl fmt::Display for Error {
@@ -50,6 +54,15 @@ impl From<Error> for IoError {
             Error::WriteZero => IoError::new(ErrorKind::WriteZero, err),
             Error::UnexpectedEof => IoError::new(ErrorKind::UnexpectedEof, err),
             _ => IoError::new(ErrorKind::InvalidData, err),
+        }
+    }
+}
+impl From<IoError> for Error {
+    fn from(err: IoError) -> Error {
+        match err.kind() {
+            ErrorKind::WriteZero => Error::WriteZero,
+            ErrorKind::UnexpectedEof => Error::UnexpectedEof,
+            k => Error::IoError(k, format!("{}",err)),
         }
     }
 }
