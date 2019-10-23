@@ -1,4 +1,4 @@
-use crate::{decoder::*, encoder::*, header::Header, *};
+use crate::{decoder::*, encoder::*, *};
 use bytes::{BufMut, BytesMut};
 
 /// Publish packet ([MQTT 3.3]).

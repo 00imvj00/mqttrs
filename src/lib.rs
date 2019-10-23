@@ -47,7 +47,6 @@
 mod connect;
 mod decoder;
 mod encoder;
-mod header;
 mod packet;
 mod publish;
 mod subscribe;
@@ -61,12 +60,11 @@ mod decoder_test;
 mod encoder_test;
 
 pub use crate::{
-    connect::{Connack, Connect},
+    connect::{Connack, Connect, ConnectReturnCode, LastWill, Protocol},
     decoder::decode,
     encoder::encode,
-    header::Protocol,
     packet::{Packet, PacketType},
     publish::Publish,
     subscribe::{Suback, Subscribe, SubscribeReturnCodes, SubscribeTopic, Unsubscribe},
-    utils::{Error, ConnectReturnCode, LastWill, Pid, QoS, QosPid},
+    utils::{Error, Pid, QoS, QosPid},
 };

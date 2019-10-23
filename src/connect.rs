@@ -1,6 +1,97 @@
 use crate::{decoder::*, encoder::*, *};
 use bytes::{Buf, BufMut, BytesMut, IntoBuf};
 
+/// Protocol version.
+///
+/// Sent in [`Connect`] packet.
+///
+/// [`Connect`]: struct.Connect.html
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Protocol {
+    /// [MQTT 3.1.1] is the most commonly implemented version. [MQTT 5] isn't yet supported my by
+    /// `mqttrs`.
+    ///
+    /// [MQTT 3.1.1]: https://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html
+    /// [MQTT 5]: https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html
+    MQTT311,
+    /// MQIsdp, aka SCADA are pre-standardisation names of MQTT. It should mostly conform to MQTT
+    /// 3.1.1, but you should watch out for implementation discrepancies. `Mqttrs` handles it like
+    /// standard MQTT 3.1.1.
+    MQIsdp,
+}
+impl Protocol {
+    pub(crate) fn new(name: &str, level: u8) -> Result<Protocol, Error> {
+        match (name, level) {
+            ("MQIsdp", 3) => Ok(Protocol::MQIsdp),
+            ("MQTT", 4) => Ok(Protocol::MQTT311),
+            _ => Err(Error::InvalidProtocol(name.into(), level)),
+        }
+    }
+    pub(crate) fn to_buffer(&self, buffer: &mut BytesMut) -> Result<(), Error> {
+        match self {
+            Protocol::MQTT311 => {
+                Ok(buffer.put_slice(&[0u8, 4, 'M' as u8, 'Q' as u8, 'T' as u8, 'T' as u8, 4]))
+            }
+            Protocol::MQIsdp => Ok(buffer.put_slice(&[
+                0u8, 4, 'M' as u8, 'Q' as u8, 'i' as u8, 's' as u8, 'd' as u8, 'p' as u8, 4,
+            ])),
+        }
+    }
+}
+
+/// Message that the server should publish when the client disconnects.
+///
+/// Sent by the client in the [Connect] packet. [MQTT 3.1.3.3].
+///
+/// [Connect]: struct.Connect.html
+/// [MQTT 3.1.3.3]: http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718031
+#[derive(Debug, Clone, PartialEq)]
+pub struct LastWill {
+    pub topic: String,
+    pub message: Vec<u8>,
+    pub qos: QoS,
+    pub retain: bool,
+}
+
+/// Sucess value of a [Connack] packet.
+///
+/// See [MQTT 3.2.2.3] for interpretations.
+///
+/// [Connack]: struct.Connack.html
+/// [MQTT 3.2.2.3]: http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718035
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ConnectReturnCode {
+    Accepted,
+    RefusedProtocolVersion,
+    RefusedIdentifierRejected,
+    ServerUnavailable,
+    BadUsernamePassword,
+    NotAuthorized,
+}
+impl ConnectReturnCode {
+    fn to_u8(&self) -> u8 {
+        match *self {
+            ConnectReturnCode::Accepted => 0,
+            ConnectReturnCode::RefusedProtocolVersion => 1,
+            ConnectReturnCode::RefusedIdentifierRejected => 2,
+            ConnectReturnCode::ServerUnavailable => 3,
+            ConnectReturnCode::BadUsernamePassword => 4,
+            ConnectReturnCode::NotAuthorized => 5,
+        }
+    }
+    pub(crate) fn from_u8(byte: u8) -> Result<ConnectReturnCode, Error> {
+        match byte {
+            0 => Ok(ConnectReturnCode::Accepted),
+            1 => Ok(ConnectReturnCode::RefusedProtocolVersion),
+            2 => Ok(ConnectReturnCode::RefusedIdentifierRejected),
+            3 => Ok(ConnectReturnCode::ServerUnavailable),
+            4 => Ok(ConnectReturnCode::BadUsernamePassword),
+            5 => Ok(ConnectReturnCode::NotAuthorized),
+            n => Err(Error::InvalidConnectReturnCode(n)),
+        }
+    }
+}
+
 /// Connect packet ([MQTT 3.1]).
 ///
 /// [MQTT 3.1]: http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718028
