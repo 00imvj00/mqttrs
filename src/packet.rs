@@ -18,7 +18,7 @@ use crate::*;
 ///                         payload: "payload".into() };
 /// let pkt: Packet = publish.into();
 /// // Identifyer-only packets
-/// let pkt = Packet::Puback(Pid::new(42).unwrap());
+/// let pkt = Packet::Puback(Pid::try_from(42).unwrap());
 /// ```
 ///
 /// [`encode()`]: fn.encode.html

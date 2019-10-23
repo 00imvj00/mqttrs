@@ -16,7 +16,7 @@ prop_compose! {
 }
 prop_compose! {
     fn stg_pid()(pid in 1..std::u16::MAX) -> Pid {
-        Pid::new(pid).unwrap()
+        Pid::try_from(pid).unwrap()
     }
 }
 prop_compose! {

@@ -67,7 +67,7 @@ impl From<IoError> for Error {
 ///
 /// ```rust
 /// # use mqttrs::{Pid, Packet};
-/// let pid = Pid::new(42).expect("illegal pid value");
+/// let pid = Pid::try_from(42).expect("illegal pid value");
 /// let next_pid = pid + 1;
 /// let pending_acks = std::collections::HashMap::<Pid, Packet>::new();
 /// ```
@@ -80,17 +80,24 @@ impl From<IoError> for Error {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Pid(NonZeroU16);
 impl Pid {
-    pub fn new(u: u16) -> Result<Self, Error> {
+    /// Returns a new `Pid` with value `1`.
+    pub fn new() -> Self {
+        Pid(NonZeroU16::new(1).unwrap())
+    }
+    /// Returns a new `Pid` with specified value.
+    // Not using std::convert::TryFrom so that don't have to depend on rust 1.34.
+    pub fn try_from(u: u16) -> Result<Self, Error> {
         match NonZeroU16::new(u) {
             Some(nz) => Ok(Pid(nz)),
             None => Err(Error::InvalidPid),
         }
     }
+    /// Get the `Pid` as a raw `u16`.
     pub fn get(self) -> u16 {
         self.0.get()
     }
     pub(crate) fn from_buffer(buf: &mut BytesMut) -> Result<Self, Error> {
-        Self::new(buf.split_to(2).into_buf().get_u16_be())
+        Self::try_from(buf.split_to(2).into_buf().get_u16_be())
     }
     pub(crate) fn to_buffer(self, buf: &mut BytesMut) -> Result<(), Error> {
         Ok(buf.put_u16_be(self.get()))
@@ -159,8 +166,8 @@ impl QosPid {
     pub(crate) fn from_u8u16(qos: u8, pid: u16) -> Self {
         match qos {
             0 => QosPid::AtMostOnce,
-            1 => QosPid::AtLeastOnce(Pid::new(pid).expect("pid == 0")),
-            2 => QosPid::ExactlyOnce(Pid::new(pid).expect("pid == 0")),
+            1 => QosPid::AtLeastOnce(Pid::try_from(pid).expect("pid == 0")),
+            2 => QosPid::ExactlyOnce(Pid::try_from(pid).expect("pid == 0")),
             _ => panic!("Qos > 2"),
         }
     }

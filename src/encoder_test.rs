@@ -53,7 +53,7 @@ fn test_publish() {
 
 #[test]
 fn test_puback() {
-    let packet = Packet::Puback(Pid::new(19).unwrap());
+    let packet = Packet::Puback(Pid::try_from(19).unwrap());
     let mut buffer = BytesMut::with_capacity(1024);
     encode(&packet, &mut buffer).unwrap();
     match decode(&mut buffer) {
@@ -64,7 +64,7 @@ fn test_puback() {
 
 #[test]
 fn test_pubrec() {
-    let packet = Packet::Pubrec(Pid::new(19).unwrap());
+    let packet = Packet::Pubrec(Pid::try_from(19).unwrap());
     let mut buffer = BytesMut::with_capacity(1024);
     encode(&packet, &mut buffer).unwrap();
     match decode(&mut buffer) {
@@ -75,7 +75,7 @@ fn test_pubrec() {
 
 #[test]
 fn test_pubrel() {
-    let packet = Packet::Pubrel(Pid::new(19).unwrap());
+    let packet = Packet::Pubrel(Pid::try_from(19).unwrap());
     let mut buffer = BytesMut::with_capacity(1024);
     encode(&packet, &mut buffer).unwrap();
     match decode(&mut buffer) {
@@ -86,7 +86,7 @@ fn test_pubrel() {
 
 #[test]
 fn test_pubcomp() {
-    let packet = Packet::Pubcomp(Pid::new(19).unwrap());
+    let packet = Packet::Pubcomp(Pid::try_from(19).unwrap());
     let mut buffer = BytesMut::with_capacity(1024);
     encode(&packet, &mut buffer).unwrap();
     match decode(&mut buffer) {
@@ -102,7 +102,7 @@ fn test_subscribe() {
         qos: QoS::ExactlyOnce,
     };
     let packet = Subscribe {
-        pid: Pid::new(345).unwrap(),
+        pid: Pid::try_from(345).unwrap(),
         topics: vec![stopic],
     };
     let mut buffer = BytesMut::with_capacity(1024);
@@ -117,7 +117,7 @@ fn test_subscribe() {
 fn test_suback() {
     let return_code = SubscribeReturnCodes::Success(QoS::ExactlyOnce);
     let packet = Suback {
-        pid: Pid::new(12321).unwrap(),
+        pid: Pid::try_from(12321).unwrap(),
         return_codes: vec![return_code],
     };
     let mut buffer = BytesMut::with_capacity(1024);
@@ -131,7 +131,7 @@ fn test_suback() {
 #[test]
 fn test_unsubscribe() {
     let packet = Unsubscribe {
-        pid: Pid::new(12321).unwrap(),
+        pid: Pid::try_from(12321).unwrap(),
         topics: vec!["a/b".to_string()],
     };
     let mut buffer = BytesMut::with_capacity(1024);
@@ -144,7 +144,7 @@ fn test_unsubscribe() {
 
 #[test]
 fn test_unsuback() {
-    let packet = Packet::Unsuback(Pid::new(19).unwrap());
+    let packet = Packet::Unsuback(Pid::try_from(19).unwrap());
     let mut buffer = BytesMut::with_capacity(1024);
     encode(&packet, &mut buffer).unwrap();
     match decode(&mut buffer) {
