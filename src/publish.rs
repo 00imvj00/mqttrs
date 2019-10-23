@@ -1,6 +1,9 @@
 use crate::{decoder::*, encoder::*, header::Header, *};
 use bytes::{BufMut, BytesMut};
 
+/// Publish packet ([MQTT 3.3]).
+///
+/// [MQTT 3.3]: http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718037
 #[derive(Debug, Clone, PartialEq)]
 pub struct Publish {
     pub dup: bool,

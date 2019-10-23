@@ -1,9 +1,29 @@
 use crate::{header::Header, *};
 use bytes::{Buf, BytesMut, IntoBuf};
 
-/// Decode network bytes into a [Packet] enum.
+/// Decode bytes from a [BytesMut] buffer as a [Packet] enum.
+///
+/// ```
+/// # use mqttrs::*;
+/// # use bytes::*;
+/// // Fill a buffer with encoded data (probably from a `TcpStream`).
+/// let mut buf = BytesMut::from(vec![0b00110000, 11,
+///                                   0, 4, 't' as u8, 'e' as u8, 's' as u8, 't' as u8,
+///                                  'h' as u8, 'e' as u8, 'l' as u8, 'l' as u8, 'o' as u8]);
+///
+/// // Parse the bytes and check the result.
+/// match decode(&mut buf) {
+///     Ok(Some(Packet::Publish(p))) => {
+///         assert_eq!(p.payload, "hello".as_bytes().to_vec());
+///     },
+///     // In real code you probably don't want to panic like that ;)
+///     Ok(None) => panic!("not enough data"),
+///     other => panic!("unexpected {:?}", other),
+/// }
+/// ```
 ///
 /// [Packet]: ../enum.Packet.html
+/// [BytesMut]: https://docs.rs/bytes/0.4.12/bytes/struct.BytesMut.html
 pub fn decode(buffer: &mut BytesMut) -> Result<Option<Packet>, Error> {
     if let Some((header, remaining_len)) = read_header(buffer)? {
         // Advance the buffer position to the next packet, and parse the current packet

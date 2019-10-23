@@ -193,6 +193,12 @@ impl QosPid {
     }
 }
 
+/// Message that the server should publish when the client disconnects.
+///
+/// Sent by the client in the [Connect] packet. [MQTT 3.1.3.3].
+///
+/// [Connect]: struct.Connect.html
+/// [MQTT 3.1.3.3]: http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718031
 #[derive(Debug, Clone, PartialEq)]
 pub struct LastWill {
     pub topic: String,
@@ -201,6 +207,12 @@ pub struct LastWill {
     pub retain: bool,
 }
 
+/// Sucess value of a [Connack] packet.
+///
+/// See [MQTT 3.2.2.3] for interpretations.
+///
+/// [Connack]: struct.Connack.html
+/// [MQTT 3.2.2.3]: http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718035
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ConnectReturnCode {
     Accepted,

@@ -1,9 +1,32 @@
 use crate::{Error, Packet};
 use bytes::{BufMut, BytesMut};
 
-/// Encode a [Packet] enum into a buffer.
+/// Encode a [Packet] enum into a [BytesMut] buffer.
+///
+/// ```
+/// # use mqttrs::*;
+/// # use bytes::*;
+/// // Instantiate a `Packet` to encode.
+/// let packet = Publish {
+///    dup: false,
+///    qospid: QosPid::AtMostOnce,
+///    retain: false,
+///    topic_name: "test".into(),
+///    payload: "hello".into(),
+/// }.into();
+///
+/// // Allocate a appropriately-sized buffer.
+/// let mut buf = BytesMut::with_capacity(1024);
+///
+/// // Write bytes corresponding to `&Packet` into the `BytesMut`.
+/// encode(&packet, &mut buf).expect("failed encoding");
+/// assert_eq!(&*buf, &[0b00110000, 11,
+///                     0, 4, 't' as u8, 'e' as u8, 's' as u8, 't' as u8,
+///                    'h' as u8, 'e' as u8, 'l' as u8, 'l' as u8, 'o' as u8]);
+/// ```
 ///
 /// [Packet]: ../enum.Packet.html
+/// [BytesMut]: https://docs.rs/bytes/0.4.12/bytes/struct.BytesMut.html
 pub fn encode(packet: &Packet, buffer: &mut BytesMut) -> Result<(), Error> {
     match packet {
         Packet::Connect(connect) => connect.to_buffer(buffer),

@@ -1,6 +1,9 @@
 use crate::{decoder::*, encoder::*, *};
 use bytes::{Buf, BufMut, BytesMut, IntoBuf};
 
+/// Connect packet ([MQTT 3.1]).
+///
+/// [MQTT 3.1]: http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718028
 #[derive(Debug, Clone, PartialEq)]
 pub struct Connect {
     pub protocol: Protocol,
@@ -12,6 +15,9 @@ pub struct Connect {
     pub password: Option<Vec<u8>>,
 }
 
+/// Connack packet ([MQTT 3.2]).
+///
+/// [MQTT 3.2]: http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718033
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Connack {
     pub session_present: bool,
