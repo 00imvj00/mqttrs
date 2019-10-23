@@ -67,25 +67,3 @@ pub enum PacketType {
     Pingresp,
     Disconnect,
 }
-impl PacketType {
-    #[inline]
-    pub(crate) fn from_hd(hd: u8) -> Result<Self, Error> {
-        match hd >> 4 {
-            1 => Ok(PacketType::Connect),
-            2 => Ok(PacketType::Connack),
-            3 => Ok(PacketType::Publish),
-            4 => Ok(PacketType::Puback),
-            5 => Ok(PacketType::Pubrec),
-            6 => Ok(PacketType::Pubrel),
-            7 => Ok(PacketType::Pubcomp),
-            8 => Ok(PacketType::Subscribe),
-            9 => Ok(PacketType::Suback),
-            10 => Ok(PacketType::Unsubscribe),
-            11 => Ok(PacketType::Unsuback),
-            12 => Ok(PacketType::Pingreq),
-            13 => Ok(PacketType::Pingresp),
-            14 => Ok(PacketType::Disconnect),
-            n => Err(Error::InvalidPacket(n)),
-        }
-    }
-}

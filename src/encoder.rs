@@ -27,7 +27,7 @@ pub fn encode(packet: &Packet, buffer: &mut BytesMut) -> Result<(), Error> {
         }
         Packet::Pubrel(pid) => {
             check_remaining(buffer, 4)?;
-            let header_u8 = 0b01100000 as u8;
+            let header_u8 = 0b01100010 as u8;
             let length = 0b00000010 as u8;
             buffer.put(header_u8);
             buffer.put(length);
@@ -90,7 +90,7 @@ pub(crate) fn write_length(len: usize, buffer: &mut BytesMut) -> Result<(), Erro
         128..=16383 => check_remaining(buffer, len + 2)?,
         16384..=2097151 => check_remaining(buffer, len + 3)?,
         2097152..=268435455 => check_remaining(buffer, len + 4)?,
-        _ => return Err(Error::InvalidLength(len)),
+        _ => return Err(Error::InvalidLength),
     }
     let mut done = false;
     let mut x = len;

@@ -24,5 +24,3 @@ pub use crate::{
     subscribe::{Suback, Subscribe, SubscribeReturnCodes, SubscribeTopic, Unsubscribe},
     utils::{Error, ConnectReturnCode, LastWill, Pid, QoS, QosPid},
 };
-
-const MULTIPLIER: usize = 0x80 * 0x80 * 0x80 * 0x80;

@@ -1,39 +1,42 @@
 use crate::{Error, PacketType, QoS};
 use bytes::{BufMut, BytesMut};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Header {
-    hd: u8,
-    packet_type: PacketType,
-    len: usize,
+    pub typ: PacketType,
+    pub dup: bool,
+    pub qos: QoS,
+    pub retain: bool,
 }
 
 impl Header {
-    pub fn new(hd: u8, len: usize) -> Result<Header, Error> {
+    pub fn new(hd: u8) -> Result<Header, Error> {
+        let (typ, flags_ok) = match hd >> 4 {
+            1 => (PacketType::Connect, hd & 0b1111 == 0),
+            2 => (PacketType::Connack, hd & 0b1111 == 0),
+            3 => (PacketType::Publish, true),
+            4 => (PacketType::Puback, hd & 0b1111 == 0),
+            5 => (PacketType::Pubrec, hd & 0b1111 == 0),
+            6 => (PacketType::Pubrel, hd & 0b1111 == 0b0010),
+            7 => (PacketType::Pubcomp, hd & 0b1111 == 0),
+            8 => (PacketType::Subscribe, hd & 0b1111 == 0b0010),
+            9 => (PacketType::Suback, hd & 0b1111 == 0),
+            10 => (PacketType::Unsubscribe, hd & 0b1111 == 0b0010),
+            11 => (PacketType::Unsuback, hd & 0b1111 == 0),
+            12 => (PacketType::Pingreq, hd & 0b1111 == 0),
+            13 => (PacketType::Pingresp, hd & 0b1111 == 0),
+            14 => (PacketType::Disconnect, hd & 0b1111 == 0),
+            _ => (PacketType::Connect, false),
+        };
+        if !flags_ok {
+            return Err(Error::InvalidHeader);
+        }
         Ok(Header {
-            hd,
-            len,
-            packet_type: PacketType::from_hd(hd)?,
+            typ,
+            dup: hd & 0b1000 != 0,
+            qos: QoS::from_u8((hd & 0b110) >> 1)?,
+            retain: hd & 1 == 1,
         })
-    }
-    pub fn packet(&self) -> PacketType {
-        self.packet_type
-    }
-    #[inline]
-    pub fn len(&self) -> usize {
-        self.len
-    }
-    #[inline]
-    pub fn dup(&self) -> bool {
-        (self.hd & 0b1000) != 0
-    }
-    #[inline]
-    pub fn qos(&self) -> Result<QoS, Error> {
-        QoS::from_hd(self.hd)
-    }
-    #[inline]
-    pub fn retain(&self) -> bool {
-        (self.hd & 1) != 0
     }
 }
 
@@ -72,16 +75,5 @@ impl Protocol {
                 0u8, 4, 'M' as u8, 'Q' as u8, 'i' as u8, 's' as u8, 'd' as u8, 'p' as u8, 4,
             ])),
         }
-    }
-}
-
-/* TESTS */
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn header() {
-        let h = Header::new(0b00010000, 0).unwrap();
-        assert_eq!(h.packet(), PacketType::Connect)
     }
 }

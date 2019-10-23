@@ -14,7 +14,7 @@ impl Publish {
     pub(crate) fn from_buffer(header: &Header, buffer: &mut BytesMut) -> Result<Self, Error> {
         let topic_name = read_string(buffer)?;
 
-        let qospid = match header.qos()? {
+        let qospid = match header.qos {
             QoS::AtMostOnce => QosPid::AtMostOnce,
             QoS::AtLeastOnce => QosPid::AtLeastOnce(Pid::from_buffer(buffer)?),
             QoS::ExactlyOnce => QosPid::ExactlyOnce(Pid::from_buffer(buffer)?),
@@ -22,9 +22,9 @@ impl Publish {
 
         let payload = buffer.to_vec();
         Ok(Publish {
-            dup: header.dup(),
+            dup: header.dup,
             qospid,
-            retain: header.retain(),
+            retain: header.retain,
             topic_name,
             payload,
         })

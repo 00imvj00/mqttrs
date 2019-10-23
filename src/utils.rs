@@ -15,6 +15,7 @@ pub enum Error {
     /// Not enough data in the read buffer.
     ///
     /// Do not treat this as a fatal error. Read more data into the buffer and try `decode()` again.
+    //FIXME: Should not be needed: decode returns `Ok(None)`.
     UnexpectedEof,
     /// Not enough space in the write buffer.
     ///
@@ -28,13 +29,13 @@ pub enum Error {
     InvalidConnectReturnCode(u8),
     /// Tried to decode an unknown protocol.
     InvalidProtocol(String, u8),
-    /// Tried to decode an invalid packet type for this protocol.
-    InvalidPacket(u8),
+    /// Tried to decode an invalid fixed header (packet type, flags, or remaining_length).
+    InvalidHeader,
     /// Trying to encode/decode an invalid length.
     ///
     /// The difference with `BufferFull`/`BufferIncomplete` is that it refers to an invalid/corrupt
     /// length rather than a buffer size issue.
-    InvalidLength(usize),
+    InvalidLength,
     /// Trying to decode a non-utf8 string.
     InvalidString(std::str::Utf8Error),
     /// Catch-all error when converting from `std::io::Error`.
@@ -144,10 +145,6 @@ impl QoS {
             2 => Ok(QoS::ExactlyOnce),
             n => Err(Error::InvalidQos(n)),
         }
-    }
-    #[inline]
-    pub(crate) fn from_hd(hd: u8) -> Result<QoS, Error> {
-        Self::from_u8((hd & 0b110) >> 1)
     }
 }
 
