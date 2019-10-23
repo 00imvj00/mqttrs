@@ -12,11 +12,6 @@ use std::{
 /// [`decode()`]: fn.decode.html
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Error {
-    /// Not enough data in the read buffer.
-    ///
-    /// Do not treat this as a fatal error. Read more data into the buffer and try `decode()` again.
-    //FIXME: Should not be needed: decode returns `Ok(None)`.
-    UnexpectedEof,
     /// Not enough space in the write buffer.
     ///
     /// It is the caller's responsiblity to pass a big enough buffer to `encode()`.
@@ -53,7 +48,6 @@ impl From<Error> for IoError {
     fn from(err: Error) -> IoError {
         match err {
             Error::WriteZero => IoError::new(ErrorKind::WriteZero, err),
-            Error::UnexpectedEof => IoError::new(ErrorKind::UnexpectedEof, err),
             _ => IoError::new(ErrorKind::InvalidData, err),
         }
     }
@@ -62,7 +56,6 @@ impl From<IoError> for Error {
     fn from(err: IoError) -> Error {
         match err.kind() {
             ErrorKind::WriteZero => Error::WriteZero,
-            ErrorKind::UnexpectedEof => Error::UnexpectedEof,
             k => Error::IoError(k, format!("{}",err)),
         }
     }
