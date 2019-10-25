@@ -1,64 +1,70 @@
-use crate::{encoder, utils, Header, PacketIdentifier, QoS};
-use bytes::{Buf, BufMut, BytesMut, IntoBuf};
-use std::io;
+use crate::{decoder::*, encoder::*, *};
+use bytes::{BufMut, BytesMut};
 
+/// Publish packet ([MQTT 3.3]).
+///
+/// [MQTT 3.3]: http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718037
 #[derive(Debug, Clone, PartialEq)]
 pub struct Publish {
     pub dup: bool,
-    pub qos: QoS,
+    pub qospid: QosPid,
     pub retain: bool,
     pub topic_name: String,
-    pub pid: Option<PacketIdentifier>,
     pub payload: Vec<u8>,
 }
 
 impl Publish {
-    pub fn from_buffer(header: &Header, buffer: &mut BytesMut) -> Result<Self, io::Error> {
-        let topic_name = utils::read_string(buffer);
+    pub(crate) fn from_buffer(header: &Header, buffer: &mut BytesMut) -> Result<Self, Error> {
+        let topic_name = read_string(buffer)?;
 
-        let pid = if header.qos()? == QoS::AtMostOnce {
-            None
-        } else {
-            Some(PacketIdentifier(buffer.split_to(2).into_buf().get_u16_be()))
+        let qospid = match header.qos {
+            QoS::AtMostOnce => QosPid::AtMostOnce,
+            QoS::AtLeastOnce => QosPid::AtLeastOnce(Pid::from_buffer(buffer)?),
+            QoS::ExactlyOnce => QosPid::ExactlyOnce(Pid::from_buffer(buffer)?),
         };
 
         let payload = buffer.to_vec();
         Ok(Publish {
-            dup: header.dup(),
-            qos: header.qos()?,
-            retain: header.retain(),
+            dup: header.dup,
+            qospid,
+            retain: header.retain,
             topic_name,
-            pid,
             payload,
         })
     }
-    pub fn to_buffer(&self, buffer: &mut BytesMut) -> Result<(), io::Error> {
+    pub(crate) fn to_buffer(&self, buffer: &mut BytesMut) -> Result<(), Error> {
         // Header
-        let mut header_u8: u8 = 0b00110000 as u8;
-        header_u8 |= (self.qos.to_u8()) << 1;
+        let mut header_u8: u8 = match self.qospid {
+            QosPid::AtMostOnce => 0b00110000,
+            QosPid::AtLeastOnce(_) => 0b00110010,
+            QosPid::ExactlyOnce(_) => 0b00110100,
+        };
         if self.dup {
             header_u8 |= 0b00001000 as u8;
         };
         if self.retain {
             header_u8 |= 0b00000001 as u8;
         };
+        check_remaining(buffer, 1)?;
         buffer.put(header_u8);
 
         // Length: topic (2+len) + pid (0/2) + payload (len)
         let length = self.topic_name.len()
-            + match self.qos {
-                QoS::AtMostOnce => 2,
+            + match self.qospid {
+                QosPid::AtMostOnce => 2,
                 _ => 4,
             }
             + self.payload.len();
-        encoder::write_length(length, buffer)?;
+        write_length(length, buffer)?;
 
         // Topic
-        encoder::write_string(self.topic_name.as_ref(), buffer)?;
+        write_string(self.topic_name.as_ref(), buffer)?;
 
         // Pid
-        if self.qos != QoS::AtMostOnce {
-            buffer.put_u16_be(self.pid.unwrap().0 as u16);
+        match self.qospid {
+            QosPid::AtMostOnce => (),
+            QosPid::AtLeastOnce(pid) => pid.to_buffer(buffer)?,
+            QosPid::ExactlyOnce(pid) => pid.to_buffer(buffer)?,
         }
 
         // Payload

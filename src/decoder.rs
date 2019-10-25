@@ -1,98 +1,241 @@
-use crate::MULTIPLIER;
 use crate::*;
 use bytes::{Buf, BytesMut, IntoBuf};
-use std::io;
 
-#[allow(dead_code)]
-pub fn decode(buffer: &mut BytesMut) -> Result<Option<Packet>, io::Error> {
-    if let Some((header, header_size)) = read_header(buffer) {
-        if buffer.len() >= header.len() + header_size {
-            //NOTE: Check if buffer has, header bytes + remaining length bytes in buffer.
-            buffer.split_to(header_size); //NOTE: Remove header bytes from buffer.
-            let p = read_packet(header, buffer)?; //NOTE: Read remaining packet.
-            Ok(Some(p))
-        } else {
-            Ok(None)
-        }
+/// Decode bytes from a [BytesMut] buffer as a [Packet] enum.
+///
+/// ```
+/// # use mqttrs::*;
+/// # use bytes::*;
+/// // Fill a buffer with encoded data (probably from a `TcpStream`).
+/// let mut buf = BytesMut::from(vec![0b00110000, 11,
+///                                   0, 4, 't' as u8, 'e' as u8, 's' as u8, 't' as u8,
+///                                  'h' as u8, 'e' as u8, 'l' as u8, 'l' as u8, 'o' as u8]);
+///
+/// // Parse the bytes and check the result.
+/// match decode(&mut buf) {
+///     Ok(Some(Packet::Publish(p))) => {
+///         assert_eq!(p.payload, "hello".as_bytes().to_vec());
+///     },
+///     // In real code you probably don't want to panic like that ;)
+///     Ok(None) => panic!("not enough data"),
+///     other => panic!("unexpected {:?}", other),
+/// }
+/// ```
+///
+/// [Packet]: ../enum.Packet.html
+/// [BytesMut]: https://docs.rs/bytes/0.4.12/bytes/struct.BytesMut.html
+pub fn decode(buffer: &mut BytesMut) -> Result<Option<Packet>, Error> {
+    if let Some((header, remaining_len)) = read_header(buffer)? {
+        // Advance the buffer position to the next packet, and parse the current packet
+        let p = &mut buffer.split_to(remaining_len);
+        Ok(Some(read_packet(header, p)?))
     } else {
+        // Don't have a full packet
         Ok(None)
     }
 }
 
-fn read_packet(header: Header, buffer: &mut BytesMut) -> Result<Packet, io::Error> {
-    let t = header.packet();
-    match t {
-        PacketType::PingReq => Ok(Packet::PingReq),
-        PacketType::PingResp => Ok(Packet::PingResp),
-        PacketType::Disconnect => Ok(Packet::Disconnect),
-        PacketType::Connect => Ok(Packet::Connect(Connect::from_buffer(
-            &mut buffer.split_to(header.len()),
-        )?)),
-        PacketType::Connack => Ok(Packet::Connack(Connack::from_buffer(
-            &mut buffer.split_to(header.len()),
-        )?)),
-        PacketType::Publish => Ok(Packet::Publish(Publish::from_buffer(
-            &header,
-            &mut buffer.split_to(header.len()),
-        )?)),
-        PacketType::Puback => Ok(Packet::Puback(PacketIdentifier(
-            buffer.split_to(2).into_buf().get_u16_be(),
-        ))),
-        PacketType::Pubrec => Ok(Packet::Pubrec(PacketIdentifier(
-            buffer.split_to(2).into_buf().get_u16_be(),
-        ))),
-        PacketType::Pubrel => Ok(Packet::Pubrel(PacketIdentifier(
-            buffer.split_to(2).into_buf().get_u16_be(),
-        ))),
-        PacketType::PubComp => Ok(Packet::PubComp(PacketIdentifier(
-            buffer.split_to(2).into_buf().get_u16_be(),
-        ))),
-        PacketType::Subscribe => Ok(Packet::Subscribe(Subscribe::from_buffer(
-            &mut buffer.split_to(header.len()),
-        )?)),
-        PacketType::SubAck => Ok(Packet::SubAck(Suback::from_buffer(
-            &mut buffer.split_to(header.len()),
-        )?)),
-        PacketType::UnSubscribe => Ok(Packet::UnSubscribe(Unsubscribe::from_buffer(
-            &mut buffer.split_to(header.len()),
-        )?)),
-        PacketType::UnSubAck => Ok(Packet::UnSubAck(PacketIdentifier(
-            buffer.split_to(2).into_buf().get_u16_be(),
-        ))),
-    }
-}
-/* This will read the header of the stream */
-fn read_header(buffer: &mut BytesMut) -> Option<(Header, usize)> {
-    if buffer.len() > 1 {
-        let header_u8 = buffer.get(0).unwrap();
-        if let Some((length, size)) = read_length(buffer, 1) {
-            let header = Header::new(*header_u8, length).unwrap();
-            Some((header, size + 1))
-        } else {
-            None
-        }
-    } else {
-        None
-    }
+fn read_packet(header: Header, buffer: &mut BytesMut) -> Result<Packet, Error> {
+    Ok(match header.typ {
+        PacketType::Pingreq => Packet::Pingreq,
+        PacketType::Pingresp => Packet::Pingresp,
+        PacketType::Disconnect => Packet::Disconnect,
+        PacketType::Connect => Connect::from_buffer(buffer)?.into(),
+        PacketType::Connack => Connack::from_buffer(buffer)?.into(),
+        PacketType::Publish => Publish::from_buffer(&header, buffer)?.into(),
+        PacketType::Puback => Packet::Puback(Pid::from_buffer(buffer)?),
+        PacketType::Pubrec => Packet::Pubrec(Pid::from_buffer(buffer)?),
+        PacketType::Pubrel => Packet::Pubrel(Pid::from_buffer(buffer)?),
+        PacketType::Pubcomp => Packet::Pubcomp(Pid::from_buffer(buffer)?),
+        PacketType::Subscribe => Subscribe::from_buffer(buffer)?.into(),
+        PacketType::Suback => Suback::from_buffer(buffer)?.into(),
+        PacketType::Unsubscribe => Unsubscribe::from_buffer(buffer)?.into(),
+        PacketType::Unsuback => Packet::Unsuback(Pid::from_buffer(buffer)?),
+    })
 }
 
-fn read_length(buffer: &BytesMut, mut pos: usize) -> Option<(usize, usize)> {
-    let mut mult: usize = 1;
+/// Read the parsed header and remaining_len from the buffer. Only return Some() and advance the
+/// buffer position if there is enough data in th ebuffer to read the full packet.
+fn read_header(buffer: &mut BytesMut) -> Result<Option<(Header, usize)>, Error> {
     let mut len: usize = 0;
-    let mut done = false;
-
-    while !done {
-        let byte = (*buffer.get(pos).unwrap()) as usize;
-        len += (byte & 0x7F) * mult;
-        mult *= 0x80;
-        if mult > MULTIPLIER {
-            return None;
-        }
-        if (byte & 0x80) == 0 {
-            done = true;
+    for pos in 0..=3 {
+        if let Some(&byte) = buffer.get(pos + 1) {
+            len += (byte as usize & 0x7F) << (pos * 7);
+            if (byte & 0x80) == 0 {
+                // Continuation bit == 0, length is parsed
+                if buffer.len() < 2 + pos + len {
+                    // Won't be able to read full packet
+                    return Ok(None);
+                }
+                // Parse header byte, skip past the header, and return
+                let header = Header::new(*buffer.get(0).unwrap())?;
+                buffer.advance(pos + 2);
+                return Ok(Some((header, len)));
+            }
         } else {
-            pos += 1;
+            // Couldn't read full length
+            return Ok(None);
         }
     }
-    Some((len as usize, pos))
+    // Continuation byte == 1 four times, that's illegal.
+    Err(Error::InvalidHeader)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct Header {
+    pub typ: PacketType,
+    pub dup: bool,
+    pub qos: QoS,
+    pub retain: bool,
+}
+impl Header {
+    pub fn new(hd: u8) -> Result<Header, Error> {
+        let (typ, flags_ok) = match hd >> 4 {
+            1 => (PacketType::Connect, hd & 0b1111 == 0),
+            2 => (PacketType::Connack, hd & 0b1111 == 0),
+            3 => (PacketType::Publish, true),
+            4 => (PacketType::Puback, hd & 0b1111 == 0),
+            5 => (PacketType::Pubrec, hd & 0b1111 == 0),
+            6 => (PacketType::Pubrel, hd & 0b1111 == 0b0010),
+            7 => (PacketType::Pubcomp, hd & 0b1111 == 0),
+            8 => (PacketType::Subscribe, hd & 0b1111 == 0b0010),
+            9 => (PacketType::Suback, hd & 0b1111 == 0),
+            10 => (PacketType::Unsubscribe, hd & 0b1111 == 0b0010),
+            11 => (PacketType::Unsuback, hd & 0b1111 == 0),
+            12 => (PacketType::Pingreq, hd & 0b1111 == 0),
+            13 => (PacketType::Pingresp, hd & 0b1111 == 0),
+            14 => (PacketType::Disconnect, hd & 0b1111 == 0),
+            _ => (PacketType::Connect, false),
+        };
+        if !flags_ok {
+            return Err(Error::InvalidHeader);
+        }
+        Ok(Header {
+            typ,
+            dup: hd & 0b1000 != 0,
+            qos: QoS::from_u8((hd & 0b110) >> 1)?,
+            retain: hd & 1 == 1,
+        })
+    }
+}
+
+pub(crate) fn read_string(buffer: &mut BytesMut) -> Result<String, Error> {
+    String::from_utf8(read_bytes(buffer)?).map_err(|e| Error::InvalidString(e.utf8_error()))
+}
+
+pub(crate) fn read_bytes(buffer: &mut BytesMut) -> Result<Vec<u8>, Error> {
+    let len = buffer.split_to(2).into_buf().get_u16_be() as usize;
+    if len > buffer.len() {
+        Err(Error::InvalidLength)
+    } else {
+        Ok(buffer.split_to(len).to_vec())
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::decoder::*;
+    use bytes::BytesMut;
+
+    macro_rules! header {
+        ($t:ident, $d:expr, $q:ident, $r:expr) => {
+            Header {
+                typ: PacketType::$t,
+                dup: $d,
+                qos: QoS::$q,
+                retain: $r,
+            }
+        };
+    }
+
+    /// Test all possible header first byte, using remaining_len=0.
+    #[test]
+    fn header_firstbyte() {
+        let valid = vec![
+            (0b0001_0000, header!(Connect, false, AtMostOnce, false)),
+            (0b0010_0000, header!(Connack, false, AtMostOnce, false)),
+            (0b0011_0000, header!(Publish, false, AtMostOnce, false)),
+            (0b0011_0001, header!(Publish, false, AtMostOnce, true)),
+            (0b0011_0010, header!(Publish, false, AtLeastOnce, false)),
+            (0b0011_0011, header!(Publish, false, AtLeastOnce, true)),
+            (0b0011_0100, header!(Publish, false, ExactlyOnce, false)),
+            (0b0011_0101, header!(Publish, false, ExactlyOnce, true)),
+            (0b0011_1000, header!(Publish, true, AtMostOnce, false)),
+            (0b0011_1001, header!(Publish, true, AtMostOnce, true)),
+            (0b0011_1010, header!(Publish, true, AtLeastOnce, false)),
+            (0b0011_1011, header!(Publish, true, AtLeastOnce, true)),
+            (0b0011_1100, header!(Publish, true, ExactlyOnce, false)),
+            (0b0011_1101, header!(Publish, true, ExactlyOnce, true)),
+            (0b0100_0000, header!(Puback, false, AtMostOnce, false)),
+            (0b0101_0000, header!(Pubrec, false, AtMostOnce, false)),
+            (0b0110_0010, header!(Pubrel, false, AtLeastOnce, false)),
+            (0b0111_0000, header!(Pubcomp, false, AtMostOnce, false)),
+            (0b1000_0010, header!(Subscribe, false, AtLeastOnce, false)),
+            (0b1001_0000, header!(Suback, false, AtMostOnce, false)),
+            (0b1010_0010, header!(Unsubscribe, false, AtLeastOnce, false)),
+            (0b1011_0000, header!(Unsuback, false, AtMostOnce, false)),
+            (0b1100_0000, header!(Pingreq, false, AtMostOnce, false)),
+            (0b1101_0000, header!(Pingresp, false, AtMostOnce, false)),
+            (0b1110_0000, header!(Disconnect, false, AtMostOnce, false)),
+        ];
+        for n in 0..=255 {
+            let res = match valid.iter().find(|(byte, _)| *byte == n) {
+                Some((_, header)) => Ok(Some((*header, 0))),
+                None if ((n & 0b110) == 0b110) && (n >> 4 == 3) => Err(Error::InvalidQos(3)),
+                None => Err(Error::InvalidHeader),
+            };
+            let buf = &mut BytesMut::from(vec![n, 0]);
+            assert_eq!(res, read_header(buf), "{:08b}", n);
+        }
+    }
+
+    /// Test decoding of length and actual buffer len.
+    #[rustfmt::skip]
+    #[test]
+    fn header_len() {
+        let h = header!(Connect, false, AtMostOnce, false);
+        for (res, bytes, buflen) in vec![
+            (Ok(Some((h, 0))),          vec![1 << 4, 0],   2),
+            (Ok(None),                  vec![1 << 4, 127], 128),
+            (Ok(Some((h, 127))),        vec![1 << 4, 127], 129),
+            (Ok(None),                  vec![1 << 4, 0x80], 2),
+            (Ok(Some((h, 0))),          vec![1 << 4, 0x80, 0], 3), //Weird encoding for "0" buf matches spec
+            (Ok(Some((h, 128))),        vec![1 << 4, 0x80, 1], 131),
+            (Ok(None),                  vec![1 << 4, 0x80+16, 78], 10002),
+            (Ok(Some((h, 10000))),      vec![1 << 4, 0x80+16, 78], 10003),
+            (Err(Error::InvalidHeader), vec![1 << 4, 0x80, 0x80, 0x80, 0x80], 10),
+        ] {
+            let mut buf = BytesMut::from(bytes);
+            buf.resize(buflen, 0);
+            assert_eq!(res, read_header(&mut buf));
+        }
+    }
+
+    #[test]
+    fn non_utf8_string() {
+        let mut data = BytesMut::from(vec![
+            0b00110000, 10, // type=Publish, remaining_len=10
+            0x00, 0x03, 'a' as u8, '/' as u8, 0xc0 as u8, // Topic with Invalid utf8
+            'h' as u8, 'e' as u8, 'l' as u8, 'l' as u8, 'o' as u8, // payload
+        ]);
+        assert!(match decode(&mut data) {
+            Err(Error::InvalidString(_)) => true,
+            _ => false,
+        });
+    }
+
+    /// Validity of remaining_len is tested exhaustively elsewhere, this is for inner lengths, which
+    /// are rarer.
+    #[test]
+    fn inner_length_too_long() {
+        let mut data = BytesMut::from(vec![
+            0b00010000, 20, // Connect packet, remaining_len=20
+            0x00, 0x04, 'M' as u8, 'Q' as u8, 'T' as u8, 'T' as u8, 0x04,
+            0b01000000, // +password
+            0x00, 0x0a, // keepalive 10 sec
+            0x00, 0x04, 't' as u8, 'e' as u8, 's' as u8, 't' as u8, // client_id
+            0x00, 0x03, 'm' as u8, 'q' as u8, // password with invalid length
+        ]);
+        assert_eq!(Err(Error::InvalidLength), decode(&mut data));
+    }
 }

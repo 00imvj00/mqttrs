@@ -1,121 +1,194 @@
-use bytes::{Buf, BytesMut, IntoBuf};
-use std::io;
+use bytes::{Buf, BufMut, BytesMut, IntoBuf};
+use std::{
+    error::Error as ErrorTrait,
+    fmt,
+    io::{Error as IoError, ErrorKind},
+    num::NonZeroU16,
+};
 
-/// Packet Identifier, for ack purposes.
+/// Errors returned by [`encode()`] and [`decode()`].
 ///
-/// Note that the spec disallows a pid of 0 ([MQTT-2.3.1-1] for mqtt3, [MQTT-2.2.1-3] for mqtt5).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct PacketIdentifier(pub u16);
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Protocol {
-    MQIsdp(u8),
-    MQTT(u8),
+/// [`encode()`]: fn.encode.html
+/// [`decode()`]: fn.decode.html
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Error {
+    /// Not enough space in the write buffer.
+    ///
+    /// It is the caller's responsiblity to pass a big enough buffer to `encode()`.
+    WriteZero,
+    /// Tried to encode or decode a ProcessIdentifier==0.
+    InvalidPid,
+    /// Tried to decode a QoS > 2.
+    InvalidQos(u8),
+    /// Tried to decode a ConnectReturnCode > 5.
+    InvalidConnectReturnCode(u8),
+    /// Tried to decode an unknown protocol.
+    InvalidProtocol(String, u8),
+    /// Tried to decode an invalid fixed header (packet type, flags, or remaining_length).
+    InvalidHeader,
+    /// Trying to encode/decode an invalid length.
+    ///
+    /// The difference with `BufferFull`/`BufferIncomplete` is that it refers to an invalid/corrupt
+    /// length rather than a buffer size issue.
+    InvalidLength,
+    /// Trying to decode a non-utf8 string.
+    InvalidString(std::str::Utf8Error),
+    /// Catch-all error when converting from `std::io::Error`.
+    ///
+    /// You'll hopefully never see this.
+    IoError(ErrorKind, String),
+}
+impl ErrorTrait for Error {}
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+impl From<Error> for IoError {
+    fn from(err: Error) -> IoError {
+        match err {
+            Error::WriteZero => IoError::new(ErrorKind::WriteZero, err),
+            _ => IoError::new(ErrorKind::InvalidData, err),
+        }
+    }
+}
+impl From<IoError> for Error {
+    fn from(err: IoError) -> Error {
+        match err.kind() {
+            ErrorKind::WriteZero => Error::WriteZero,
+            k => Error::IoError(k, format!("{}",err)),
+        }
+    }
 }
 
+/// Packet Identifier.
+///
+/// For packets with [`QoS::AtLeastOne` or `QoS::ExactlyOnce`] delivery.
+///
+/// ```rust
+/// # use mqttrs::{Pid, Packet};
+/// let pid = Pid::try_from(42).expect("illegal pid value");
+/// let next_pid = pid + 1;
+/// let pending_acks = std::collections::HashMap::<Pid, Packet>::new();
+/// ```
+///
+/// The spec ([MQTT-2.3.1-1], [MQTT-2.2.1-3]) disallows a pid of 0.
+///
+/// [`QoS::AtLeastOne` or `QoS::ExactlyOnce`]: enum.QoS.html
+/// [MQTT-2.3.1-1]: https://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718025
+/// [MQTT-2.2.1-3]: https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901026
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Pid(NonZeroU16);
+impl Pid {
+    /// Returns a new `Pid` with value `1`.
+    pub fn new() -> Self {
+        Pid(NonZeroU16::new(1).unwrap())
+    }
+    /// Returns a new `Pid` with specified value.
+    // Not using std::convert::TryFrom so that don't have to depend on rust 1.34.
+    pub fn try_from(u: u16) -> Result<Self, Error> {
+        match NonZeroU16::new(u) {
+            Some(nz) => Ok(Pid(nz)),
+            None => Err(Error::InvalidPid),
+        }
+    }
+    /// Get the `Pid` as a raw `u16`.
+    pub fn get(self) -> u16 {
+        self.0.get()
+    }
+    pub(crate) fn from_buffer(buf: &mut BytesMut) -> Result<Self, Error> {
+        Self::try_from(buf.split_to(2).into_buf().get_u16_be())
+    }
+    pub(crate) fn to_buffer(self, buf: &mut BytesMut) -> Result<(), Error> {
+        Ok(buf.put_u16_be(self.get()))
+    }
+}
+impl std::ops::Add<u16> for Pid {
+    type Output = Pid;
+    fn add(self, u: u16) -> Pid {
+        let n = self.get().wrapping_add(u);
+        Pid(NonZeroU16::new(if n == 0 { 1 } else { n }).unwrap())
+    }
+}
+impl std::ops::Sub<u16> for Pid {
+    type Output = Pid;
+    fn sub(self, u: u16) -> Pid {
+        let n = self.get().wrapping_sub(u);
+        Pid(NonZeroU16::new(if n == 0 { std::u16::MAX } else { n }).unwrap())
+    }
+}
+
+/// Packet delivery [Quality of Service] level.
+///
+/// [Quality of Service]: http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718099
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum QoS {
+    /// `QoS 0`. No ack needed.
     AtMostOnce,
+    /// `QoS 1`. One ack needed.
     AtLeastOnce,
+    /// `QoS 2`. Two acks needed.
     ExactlyOnce,
 }
 impl QoS {
-    pub fn to_u8(&self) -> u8 {
+    pub(crate) fn to_u8(&self) -> u8 {
         match *self {
             QoS::AtMostOnce => 0,
             QoS::AtLeastOnce => 1,
             QoS::ExactlyOnce => 2,
         }
     }
-    pub fn from_u8(byte: u8) -> Result<QoS, io::Error> {
+    pub(crate) fn from_u8(byte: u8) -> Result<QoS, Error> {
         match byte {
             0 => Ok(QoS::AtMostOnce),
             1 => Ok(QoS::AtLeastOnce),
             2 => Ok(QoS::ExactlyOnce),
-            _ => Err(io::Error::new(io::ErrorKind::InvalidData, "")),
+            n => Err(Error::InvalidQos(n)),
         }
     }
-    #[inline]
-    pub fn from_hd(hd: u8) -> Result<QoS, io::Error> {
-        Self::from_u8((hd & 0b110) >> 1)
-    }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum ConnectReturnCode {
-    Accepted,
-    RefusedProtocolVersion,
-    RefusedIdentifierRejected,
-    ServerUnavailable,
-    BadUsernamePassword,
-    NotAuthorized,
+/// Combined [`QoS`]/[`Pid`].
+///
+/// Used only in [`Publish`] packets.
+///
+/// [`Publish`]: struct.Publish.html
+/// [`QoS`]: enum.QoS.html
+/// [`Pid`]: struct.Pid.html
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum QosPid {
+    AtMostOnce,
+    AtLeastOnce(Pid),
+    ExactlyOnce(Pid),
 }
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct LastWill {
-    pub topic: String,
-    pub message: String,
-    pub qos: QoS,
-    pub retain: bool,
-}
-
-impl Protocol {
-    pub fn new(name: &str, level: u8) -> Result<Protocol, io::Error> {
-        match name {
-            "MQIsdp" => match level {
-                3 => Ok(Protocol::MQIsdp(3)),
-                _ => Err(io::Error::new(io::ErrorKind::InvalidData, "")),
-            },
-            "MQTT" => match level {
-                4 => Ok(Protocol::MQTT(4)),
-                _ => Err(io::Error::new(io::ErrorKind::InvalidData, "")),
-            },
-            _ => Err(io::Error::new(io::ErrorKind::InvalidData, "")),
+impl QosPid {
+    #[cfg(test)]
+    pub(crate) fn from_u8u16(qos: u8, pid: u16) -> Self {
+        match qos {
+            0 => QosPid::AtMostOnce,
+            1 => QosPid::AtLeastOnce(Pid::try_from(pid).expect("pid == 0")),
+            2 => QosPid::ExactlyOnce(Pid::try_from(pid).expect("pid == 0")),
+            _ => panic!("Qos > 2"),
         }
     }
-
-    pub fn name(&self) -> &'static str {
+    /// Extract the [`Pid`] from a `QosPid`, if any.
+    ///
+    /// [`Pid`]: struct.Pid.html
+    pub fn pid(self) -> Option<Pid> {
         match self {
-            &Protocol::MQIsdp(_) => "MQIsdp",
-            &Protocol::MQTT(_) => "MQTT",
+            QosPid::AtMostOnce => None,
+            QosPid::AtLeastOnce(p) => Some(p),
+            QosPid::ExactlyOnce(p) => Some(p),
         }
     }
-
-    pub fn level(&self) -> u8 {
+    /// Extract the [`QoS`] from a `QosPid`.
+    ///
+    /// [`QoS`]: enum.QoS.html
+    pub fn qos(self) -> QoS {
         match self {
-            &Protocol::MQIsdp(level) => level,
-            &Protocol::MQTT(level) => level,
+            QosPid::AtMostOnce => QoS::AtMostOnce,
+            QosPid::AtLeastOnce(_) => QoS::AtLeastOnce,
+            QosPid::ExactlyOnce(_) => QoS::ExactlyOnce,
         }
     }
-}
-
-impl ConnectReturnCode {
-    pub fn to_u8(&self) -> u8 {
-        match *self {
-            ConnectReturnCode::Accepted => 0,
-            ConnectReturnCode::RefusedProtocolVersion => 1,
-            ConnectReturnCode::RefusedIdentifierRejected => 2,
-            ConnectReturnCode::ServerUnavailable => 3,
-            ConnectReturnCode::BadUsernamePassword => 4,
-            ConnectReturnCode::NotAuthorized => 5,
-        }
-    }
-
-    pub fn from_u8(byte: u8) -> Result<ConnectReturnCode, io::Error> {
-        match byte {
-            0 => Ok(ConnectReturnCode::Accepted),
-            1 => Ok(ConnectReturnCode::RefusedProtocolVersion),
-            2 => Ok(ConnectReturnCode::RefusedIdentifierRejected),
-            3 => Ok(ConnectReturnCode::ServerUnavailable),
-            4 => Ok(ConnectReturnCode::BadUsernamePassword),
-            5 => Ok(ConnectReturnCode::NotAuthorized),
-            _ => Err(io::Error::new(io::ErrorKind::InvalidInput, "")),
-        }
-    }
-}
-
-pub fn read_string(buffer: &mut BytesMut) -> String {
-    let length = buffer.split_to(2).into_buf().get_u16_be();
-    let byts = buffer.split_to(length as usize);
-    return String::from_utf8(byts.to_vec()).unwrap().to_string();
 }

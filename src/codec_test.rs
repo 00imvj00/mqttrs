@@ -1,4 +1,5 @@
 use crate::*;
+use bytes::BufMut;
 use bytes::BytesMut;
 use proptest::{bool, collection::vec, num::*, prelude::*};
 
@@ -11,6 +12,11 @@ prop_compose! {
 prop_compose! {
     fn stg_qos()(qos in 0u8..=2) -> QoS {
         QoS::from_u8(qos).unwrap()
+    }
+}
+prop_compose! {
+    fn stg_pid()(pid in 1..std::u16::MAX) -> Pid {
+        Pid::try_from(pid).unwrap()
     }
 }
 prop_compose! {
@@ -40,13 +46,13 @@ prop_compose! {
                      clean_session in bool::ANY,
                      username in stg_optstr(),
                      password in stg_optstr()) -> Packet {
-        Packet::Connect(Connect { protocol: Protocol::MQTT(4),
+        Packet::Connect(Connect { protocol: Protocol::MQTT311,
                                   keep_alive,
                                   client_id,
                                   clean_session,
                                   last_will: None,
                                   username,
-                                  password })
+                                  password: password.map(|p| p.as_bytes().to_vec()) })
     }
 }
 prop_compose! {
@@ -57,67 +63,70 @@ prop_compose! {
 }
 prop_compose! {
     fn stg_publish()(dup in bool::ANY,
-                     qos in 0u8..3,
-                     pid in u16::ANY,
+                     qos in stg_qos(),
+                     pid in stg_pid(),
                      retain in bool::ANY,
                      topic_name in stg_topic(),
                      payload in vec(0u8..255u8, 1..300)) -> Packet {
         Packet::Publish(Publish{dup,
-                                qos: QoS::from_u8(qos).unwrap(),
+                                qospid: match qos {
+                                    QoS::AtMostOnce => QosPid::AtMostOnce,
+                                    QoS::AtLeastOnce => QosPid::AtLeastOnce(pid),
+                                    QoS::ExactlyOnce => QosPid::ExactlyOnce(pid),
+                                },
                                 retain,
                                 topic_name,
-                                pid: if qos == 0 { None } else { Some(PacketIdentifier(pid)) },
                                 payload})
     }
 }
 prop_compose! {
-    fn stg_puback()(pid in u16::ANY) -> Packet {
-        Packet::Puback(PacketIdentifier(pid))
+    fn stg_puback()(pid in stg_pid()) -> Packet {
+        Packet::Puback(pid)
     }
 }
 prop_compose! {
-    fn stg_pubrec()(pid in u16::ANY) -> Packet {
-        Packet::Pubrec(PacketIdentifier(pid))
+    fn stg_pubrec()(pid in stg_pid()) -> Packet {
+        Packet::Pubrec(pid)
     }
 }
 prop_compose! {
-    fn stg_pubrel()(pid in u16::ANY) -> Packet {
-        Packet::Puback(PacketIdentifier(pid))
+    fn stg_pubrel()(pid in stg_pid()) -> Packet {
+        Packet::Pubrel(pid)
     }
 }
 prop_compose! {
-    fn stg_pubcomp()(pid in u16::ANY) -> Packet {
-        Packet::PubComp(PacketIdentifier(pid))
+    fn stg_pubcomp()(pid in stg_pid()) -> Packet {
+        Packet::Pubcomp(pid)
     }
 }
 prop_compose! {
-    fn stg_subscribe()(pid in u16::ANY, topics in vec(stg_subtopic(), 0..20)) -> Packet {
-        Packet::Subscribe(Subscribe{pid: PacketIdentifier(pid), topics})
+    fn stg_subscribe()(pid in stg_pid(), topics in vec(stg_subtopic(), 0..20)) -> Packet {
+        Packet::Subscribe(Subscribe{pid: pid, topics})
     }
 }
 prop_compose! {
-    fn stg_suback()(pid in u16::ANY, return_codes in vec(stg_subretcode(), 0..300)) -> Packet {
-        Packet::SubAck(Suback{pid: PacketIdentifier(pid), return_codes})
+    fn stg_suback()(pid in stg_pid(), return_codes in vec(stg_subretcode(), 0..300)) -> Packet {
+        Packet::Suback(Suback{pid: pid, return_codes})
     }
 }
 prop_compose! {
-    fn stg_unsubscribe()(pid in u16::ANY, topics in vec(stg_topic(), 0..20)) -> Packet {
-        Packet::UnSubscribe(Unsubscribe{pid:PacketIdentifier(pid), topics})
+    fn stg_unsubscribe()(pid in stg_pid(), topics in vec(stg_topic(), 0..20)) -> Packet {
+        Packet::Unsubscribe(Unsubscribe{pid:pid, topics})
     }
 }
 prop_compose! {
-    fn stg_unsuback()(pid in u16::ANY) -> Packet {
-        Packet::UnSubAck(PacketIdentifier(pid))
+    fn stg_unsuback()(pid in stg_pid()) -> Packet {
+        Packet::Unsuback(pid)
     }
 }
 prop_compose! {
     fn stg_pingreq()(_ in bool::ANY) -> Packet {
-        Packet::PingReq
+        Packet::Pingreq
     }
 }
 prop_compose! {
     fn stg_pingresp()(_ in bool::ANY) -> Packet {
-        Packet::PingResp
+        Packet::Pingresp
     }
 }
 prop_compose! {
@@ -136,14 +145,14 @@ macro_rules! impl_proptests {
             fn $name(pkt in $stg()) {
                 // Encode the packet
                 let mut buf = BytesMut::with_capacity(10240);
-                let res = encoder::encode(&pkt.clone(), &mut buf);
+                let res = encode(&pkt, &mut buf);
                 prop_assert!(res.is_ok(), "encode({:?}) -> {:?}", pkt, res);
                 prop_assert!(buf.len() >= 2, "buffer too small: {:?}", buf); //PING is 2 bytes
                 prop_assert!(buf[0] >> 4 > 0 && buf[0] >> 4 < 16, "bad packet type {:?}", buf);
 
                 // Check that decoding returns the original
-                let mut encoded = buf.clone();
-                let decoded = decoder::decode(&mut buf);
+                let encoded = buf.clone();
+                let decoded = decode(&mut buf);
                 let ok = match &decoded {
                     Ok(Some(p)) if *p == pkt => true,
                     _other => false,
@@ -152,9 +161,23 @@ macro_rules! impl_proptests {
                 prop_assert!(buf.is_empty(), "Buffer not empty: {:?}", buf);
 
                 // Check that decoding a partial packet returns Ok(None)
-                encoded.split_off(encoded.len() - 1);
-                let decoded = decoder::decode(&mut encoded).unwrap();
+                let decoded = decode(&mut encoded.clone().split_off(encoded.len() - 1)).unwrap();
                 prop_assert!(decoded.is_none(), "partial decode {:?} -> {:?}", encoded, decoded);
+
+                // Check that encoding into a small buffer fails cleanly
+                buf.clear();
+                buf.split_off(encoded.len());
+                prop_assert!(encoded.len() == buf.remaining_mut() && buf.is_empty(),
+                             "Wrong buffer init1 {}/{}/{}", encoded.len(), buf.remaining_mut(), buf.is_empty());
+                prop_assert!(encode(&pkt, &mut buf).is_ok(), "exact buffer capacity {}", buf.capacity());
+                for l in (0..encoded.len()).rev() {
+                    buf.clear();
+                    buf.split_to(1);
+                    prop_assert!(l == buf.remaining_mut() && buf.is_empty(),
+                                 "Wrong buffer init2 {}/{}/{}", l, buf.remaining_mut(), buf.is_empty());
+                    prop_assert_eq!(Err(Error::WriteZero), encode(&pkt, &mut buf),
+                                    "small buffer capacity {}/{}", buf.capacity(), encoded.len());
+                }
             }
         }
     };
