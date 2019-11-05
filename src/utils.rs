@@ -28,7 +28,7 @@ pub enum Error {
     InvalidHeader,
     /// Trying to encode/decode an invalid length.
     ///
-    /// The difference with `BufferFull`/`BufferIncomplete` is that it refers to an invalid/corrupt
+    /// The difference with `WriteZero`/`UnexpectedEof` is that it refers to an invalid/corrupt
     /// length rather than a buffer size issue.
     InvalidLength,
     /// Trying to decode a non-utf8 string.
