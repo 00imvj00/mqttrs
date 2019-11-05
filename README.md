@@ -13,6 +13,7 @@ packet).
 [MQTT 3.1.1](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html). Support for [MQTT
 5](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html) is planned for a future version.
 
+
 ## Usage
 
 Add `mqttrs = "0.2"` to your `Cargo.toml`.
@@ -45,3 +46,14 @@ assert_eq!(Ok(None), decode(&mut incomplete));
 let mut garbage = BytesMut::from(vec![0u8,0,0,0]);
 assert_eq!(Err(Error::InvalidHeader), decode(&mut garbage));
 ```
+
+## Optional [serde](https://serde.rs/) support.
+
+Use  `mqttrs = { version = "0.2", features = [ "derive" ] }` in your `Cargo.toml`.
+
+Enabling this features adds `#[derive(Deserialize, Serialize)]` to some `mqttrs` types. This
+simplifies storing those structs in a database or file, typically to implement session support (qos,
+subscriptions...).
+
+This doesn't add mqtt as a serde data format; you still need to use the `mqttrs::{decode,encode}`
+functions.

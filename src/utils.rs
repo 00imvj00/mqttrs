@@ -1,4 +1,6 @@
 use bytes::{Buf, BufMut, BytesMut, IntoBuf};
+#[cfg(feature = "derive")]
+use serde::{Deserialize, Serialize};
 use std::{
     error::Error as ErrorTrait,
     fmt,
@@ -78,6 +80,7 @@ impl From<IoError> for Error {
 /// [MQTT-2.3.1-1]: https://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718025
 /// [MQTT-2.2.1-3]: https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901026
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "derive", derive(Serialize, Deserialize))]
 pub struct Pid(NonZeroU16);
 impl Pid {
     /// Returns a new `Pid` with value `1`.
@@ -129,6 +132,7 @@ impl std::ops::Sub<u16> for Pid {
 ///
 /// [Quality of Service]: http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718099
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "derive", derive(Serialize, Deserialize))]
 pub enum QoS {
     /// `QoS 0`. No ack needed.
     AtMostOnce,
@@ -163,6 +167,7 @@ impl QoS {
 /// [`QoS`]: enum.QoS.html
 /// [`Pid`]: struct.Pid.html
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "derive", derive(Serialize, Deserialize))]
 pub enum QosPid {
     AtMostOnce,
     AtLeastOnce(Pid),

@@ -1,5 +1,7 @@
 use crate::{decoder::*, encoder::*, *};
 use bytes::{Buf, BufMut, BytesMut, IntoBuf};
+#[cfg(feature = "derive")]
+use serde::{Deserialize, Serialize};
 
 /// Subscribe topic.
 ///
@@ -7,6 +9,7 @@ use bytes::{Buf, BufMut, BytesMut, IntoBuf};
 ///
 /// [Subscribe]: struct.Subscribe.html
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "derive", derive(Serialize, Deserialize))]
 pub struct SubscribeTopic {
     pub topic_path: String,
     pub qos: QoS,

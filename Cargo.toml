@@ -13,8 +13,13 @@ keywords = ["mqtt", "pubsub", "publish-subscribe", "codec"]
 categories = ["encoding", "network-programming"]
 license = "Apache-2.0"
 
+[features]
+# Implements serde::{Serialize,Deserialize} on mqttrs::Pid.
+derive = ["serde"]
+
 [dependencies]
 bytes = "0.4"
+serde = { version = "1.0", features = ["derive"], optional = true }
 
 [dev-dependencies]
 proptest = "0.9.4"
