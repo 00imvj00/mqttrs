@@ -5,7 +5,9 @@ protocol](https://mqtt.org/) clients and servers.
 
 It is a codec-only library with [very few dependencies](Cargo.toml) and a [straightworward and
 composable API](https://docs.rs/mqttrs/*/mqttrs/), usable with rust's standard library or with async
-frameworks like [tokio](https://tokio.rs/).
+frameworks like [tokio](https://tokio.rs/). It is strict when decoding (e.g. returns an error when
+encountering reserved values) and encoding (the API makes it impossible to generate an illegal
+packet).
 
 `Mqttrs` currently requires [Rust >= 1.32](https://www.rust-lang.org/learn/get-started) and supports
 [MQTT 3.1.1](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html). Support for [MQTT

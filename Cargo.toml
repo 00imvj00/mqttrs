@@ -2,12 +2,15 @@
 name = "mqttrs"
 version = "0.2.0"
 authors = ["00imvj00 <vijaybambhaniya007@gmail.com>",
-        "Vincent de Phily <moltonel@gmail.com>"]
+           "Vincent de Phily <moltonel@gmail.com>"]
 edition = "2018"
-description = "mqttrs is encoding & decoding library for mqtt protocol, it can work with both sync as well as async apps"
+description = "Mqtt protocol encoding and decoding"
+readme = "README.md"
 homepage = "https://github.com/00imvj00/mqttrs"
 repository = "https://github.com/00imvj00/mqttrs"
-keywords = ["mqtt", "encoding", "decoding", "async", "async-mqtt"]
+documentation = "https://docs.rs/mqttrs"
+keywords = ["mqtt", "pubsub", "publish-subscribe", "codec"]
+categories = ["encoding", "network-programming"]
 license = "Apache-2.0"
 
 [dependencies]

@@ -28,7 +28,7 @@ pub enum Error {
     InvalidHeader,
     /// Trying to encode/decode an invalid length.
     ///
-    /// The difference with `BufferFull`/`BufferIncomplete` is that it refers to an invalid/corrupt
+    /// The difference with `WriteZero`/`UnexpectedEof` is that it refers to an invalid/corrupt
     /// length rather than a buffer size issue.
     InvalidLength,
     /// Trying to decode a non-utf8 string.
@@ -56,7 +56,7 @@ impl From<IoError> for Error {
     fn from(err: IoError) -> Error {
         match err.kind() {
             ErrorKind::WriteZero => Error::WriteZero,
-            k => Error::IoError(k, format!("{}",err)),
+            k => Error::IoError(k, format!("{}", err)),
         }
     }
 }
@@ -106,15 +106,22 @@ impl Pid {
 impl std::ops::Add<u16> for Pid {
     type Output = Pid;
     fn add(self, u: u16) -> Pid {
-        let n = self.get().wrapping_add(u);
-        Pid(NonZeroU16::new(if n == 0 { 1 } else { n }).unwrap())
+        let n = match self.get().overflowing_add(u) {
+            (n, false) => n,
+            (n, true) => n + 1,
+        };
+        Pid(NonZeroU16::new(n).unwrap())
     }
 }
 impl std::ops::Sub<u16> for Pid {
     type Output = Pid;
     fn sub(self, u: u16) -> Pid {
-        let n = self.get().wrapping_sub(u);
-        Pid(NonZeroU16::new(if n == 0 { std::u16::MAX } else { n }).unwrap())
+        let n = match self.get().overflowing_sub(u) {
+            (0, _) => std::u16::MAX,
+            (n, false) => n,
+            (n, true) => n - 1,
+        };
+        Pid(NonZeroU16::new(n).unwrap())
     }
 }
 
@@ -189,6 +196,34 @@ impl QosPid {
             QosPid::AtMostOnce => QoS::AtMostOnce,
             QosPid::AtLeastOnce(_) => QoS::AtLeastOnce,
             QosPid::ExactlyOnce(_) => QoS::ExactlyOnce,
+        }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::Pid;
+
+    #[test]
+    fn pid_add_sub() {
+        let t: Vec<(u16, u16, u16, u16)> = vec![
+            (2, 1, 1, 3),
+            (100, 1, 99, 101),
+            (1, 1, std::u16::MAX, 2),
+            (1, 2, std::u16::MAX - 1, 3),
+            (1, 3, std::u16::MAX - 2, 4),
+            (std::u16::MAX, 1, std::u16::MAX - 1, 1),
+            (std::u16::MAX, 2, std::u16::MAX - 2, 2),
+            (10, std::u16::MAX, 10, 10),
+            (10, 0, 10, 10),
+            (1, 0, 1, 1),
+            (std::u16::MAX, 0, std::u16::MAX, std::u16::MAX),
+        ];
+        for (cur, d, prev, next) in t {
+            let sub = Pid::try_from(cur).unwrap() - d;
+            let add = Pid::try_from(cur).unwrap() + d;
+            assert_eq!(prev, sub.get(), "{} - {} should be {}", cur, d, prev);
+            assert_eq!(next, add.get(), "{} + {} should be {}", cur, d, next);
         }
     }
 }
