@@ -1,6 +1,7 @@
 use crate::*;
 use bytes::BytesMut;
 use proptest::{bool, collection::vec, num::*, prelude::*};
+use std::convert::TryFrom;
 
 // Proptest strategies to generate packet elements
 prop_compose! {

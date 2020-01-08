@@ -1,5 +1,6 @@
 use crate::*;
 use bytes::BytesMut;
+use std::convert::TryFrom;
 
 macro_rules! assert_decode {
     ($res:pat, $pkt:expr) => {

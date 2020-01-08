@@ -2,6 +2,7 @@ use bytes::{Buf, BufMut, BytesMut};
 #[cfg(feature = "derive")]
 use serde::{Deserialize, Serialize};
 use std::{
+    convert::TryFrom,
     error::Error as ErrorTrait,
     fmt,
     io::{Error as IoError, ErrorKind},
@@ -68,10 +69,22 @@ impl From<IoError> for Error {
 /// For packets with [`QoS::AtLeastOne` or `QoS::ExactlyOnce`] delivery.
 ///
 /// ```rust
-/// # use mqttrs::{Pid, Packet};
-/// let pid = Pid::try_from(42).expect("illegal pid value");
-/// let next_pid = pid + 1;
-/// let pending_acks = std::collections::HashMap::<Pid, Packet>::new();
+/// # use mqttrs::{Packet, Pid, QosPid};
+/// # use std::convert::TryFrom;
+/// #[derive(Default)]
+/// struct Session {
+///    pid: Pid,
+/// }
+/// impl Session {
+///    pub fn next_pid(&mut self) -> Pid {
+///        self.pid = self.pid + 1;
+///        self.pid
+///    }
+/// }
+///
+/// let mut sess = Session::default();
+/// assert_eq!(2, sess.next_pid().get());
+/// assert_eq!(Pid::try_from(3).unwrap(), sess.next_pid());
 /// ```
 ///
 /// The spec ([MQTT-2.3.1-1], [MQTT-2.2.1-3]) disallows a pid of 0.
@@ -87,14 +100,6 @@ impl Pid {
     pub fn new() -> Self {
         Pid(NonZeroU16::new(1).unwrap())
     }
-    /// Returns a new `Pid` with specified value.
-    // Not using std::convert::TryFrom so that don't have to depend on rust 1.34.
-    pub fn try_from(u: u16) -> Result<Self, Error> {
-        match NonZeroU16::new(u) {
-            Some(nz) => Ok(Pid(nz)),
-            None => Err(Error::InvalidPid),
-        }
-    }
     /// Get the `Pid` as a raw `u16`.
     pub fn get(self) -> u16 {
         self.0.get()
@@ -106,8 +111,14 @@ impl Pid {
         Ok(buf.put_u16(self.get()))
     }
 }
+impl Default for Pid {
+    fn default() -> Pid {
+        Pid::new()
+    }
+}
 impl std::ops::Add<u16> for Pid {
     type Output = Pid;
+    /// Adding a `u16` to a `Pid` will wrap around and avoid 0.
     fn add(self, u: u16) -> Pid {
         let n = match self.get().overflowing_add(u) {
             (n, false) => n,
@@ -118,6 +129,7 @@ impl std::ops::Add<u16> for Pid {
 }
 impl std::ops::Sub<u16> for Pid {
     type Output = Pid;
+    /// Adding a `u16` to a `Pid` will wrap around and avoid 0.
     fn sub(self, u: u16) -> Pid {
         let n = match self.get().overflowing_sub(u) {
             (0, _) => std::u16::MAX,
@@ -125,6 +137,22 @@ impl std::ops::Sub<u16> for Pid {
             (n, true) => n - 1,
         };
         Pid(NonZeroU16::new(n).unwrap())
+    }
+}
+impl From<Pid> for u16 {
+    /// Convert `Pid` to `u16`.
+    fn from(p: Pid) -> Self {
+        p.0.get()
+    }
+}
+impl TryFrom<u16> for Pid {
+    type Error = Error;
+    /// Convert `u16` to `Pid`. Will fail for value 0.
+    fn try_from(u: u16) -> Result<Self, Error> {
+        match NonZeroU16::new(u) {
+            Some(nz) => Ok(Pid(nz)),
+            None => Err(Error::InvalidPid),
+        }
     }
 }
 
@@ -208,6 +236,7 @@ impl QosPid {
 #[cfg(test)]
 mod test {
     use crate::Pid;
+    use std::convert::TryFrom;
 
     #[test]
     fn pid_add_sub() {
