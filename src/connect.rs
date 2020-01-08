@@ -1,5 +1,5 @@
 use crate::{decoder::*, encoder::*, *};
-use bytes::{Buf, BufMut, BytesMut, IntoBuf};
+use bytes::{Buf, BufMut, BytesMut};
 
 /// Protocol version.
 ///
@@ -27,12 +27,12 @@ impl Protocol {
             _ => Err(Error::InvalidProtocol(name.into(), level)),
         }
     }
-    pub(crate) fn to_buffer(&self, buffer: &mut BytesMut) -> Result<(), Error> {
+    pub(crate) fn to_buffer(&self, buf: &mut BytesMut) -> Result<(), Error> {
         match self {
             Protocol::MQTT311 => {
-                Ok(buffer.put_slice(&[0u8, 4, 'M' as u8, 'Q' as u8, 'T' as u8, 'T' as u8, 4]))
+                Ok(buf.put_slice(&[0u8, 4, 'M' as u8, 'Q' as u8, 'T' as u8, 'T' as u8, 4]))
             }
-            Protocol::MQIsdp => Ok(buffer.put_slice(&[
+            Protocol::MQIsdp => Ok(buf.put_slice(&[
                 0u8, 4, 'M' as u8, 'Q' as u8, 'i' as u8, 's' as u8, 'd' as u8, 'p' as u8, 4,
             ])),
         }
@@ -116,19 +116,19 @@ pub struct Connack {
 }
 
 impl Connect {
-    pub(crate) fn from_buffer(buffer: &mut BytesMut) -> Result<Self, Error> {
-        let protocol_name = read_string(buffer)?;
-        let protocol_level = buffer.split_to(1).into_buf().get_u8();
+    pub(crate) fn from_buffer(buf: &mut BytesMut) -> Result<Self, Error> {
+        let protocol_name = read_string(buf)?;
+        let protocol_level = buf.split_to(1).get_u8();
         let protocol = Protocol::new(&protocol_name, protocol_level).unwrap();
 
-        let connect_flags = buffer.split_to(1).into_buf().get_u8();
-        let keep_alive = buffer.split_to(2).into_buf().get_u16_be();
+        let connect_flags = buf.split_to(1).get_u8();
+        let keep_alive = buf.split_to(2).get_u16();
 
-        let client_id = read_string(buffer)?;
+        let client_id = read_string(buf)?;
 
         let last_will = if connect_flags & 0b100 != 0 {
-            let will_topic = read_string(buffer)?;
-            let will_message = read_bytes(buffer)?;
+            let will_topic = read_string(buf)?;
+            let will_message = read_bytes(buf)?;
             let will_qod = QoS::from_u8((connect_flags & 0b11000) >> 3).unwrap();
             Some(LastWill {
                 topic: will_topic,
@@ -141,13 +141,13 @@ impl Connect {
         };
 
         let username = if connect_flags & 0b10000000 != 0 {
-            Some(read_string(buffer)?)
+            Some(read_string(buf)?)
         } else {
             None
         };
 
         let password = if connect_flags & 0b01000000 != 0 {
-            Some(read_bytes(buffer)?)
+            Some(read_bytes(buf)?)
         } else {
             None
         };
@@ -164,8 +164,8 @@ impl Connect {
             clean_session,
         })
     }
-    pub(crate) fn to_buffer(&self, buffer: &mut BytesMut) -> Result<(), Error> {
-        let header_u8: u8 = 0b00010000;
+    pub(crate) fn to_buffer(&self, buf: &mut BytesMut) -> Result<(), Error> {
+        let header: u8 = 0b00010000;
         let mut length: usize = 6 + 1 + 1; //NOTE: protocol_name(6) + protocol_level(1) + flags(1);
         let mut connect_flags: u8 = 0b00000000;
         if self.clean_session {
@@ -193,26 +193,26 @@ impl Connect {
             length += last_will.topic.len();
             length += 4;
         };
-        check_remaining(buffer, length + 1)?;
+        check_remaining(buf, length + 1)?;
 
         //NOTE: putting data into buffer.
-        buffer.put(header_u8);
-        write_length(length, buffer)?;
-        self.protocol.to_buffer(buffer)?;
-        buffer.put(connect_flags);
-        buffer.put_u16_be(self.keep_alive);
-        write_string(self.client_id.as_ref(), buffer)?;
+        buf.put_u8(header);
+        write_length(length, buf)?;
+        self.protocol.to_buffer(buf)?;
+        buf.put_u8(connect_flags);
+        buf.put_u16(self.keep_alive);
+        write_string(self.client_id.as_ref(), buf)?;
 
         if let Some(last_will) = &self.last_will {
-            write_string(last_will.topic.as_ref(), buffer)?;
-            write_bytes(&last_will.message, buffer)?;
+            write_string(last_will.topic.as_ref(), buf)?;
+            write_bytes(&last_will.message, buf)?;
         };
 
         if let Some(username) = &self.username {
-            write_string(username.as_ref(), buffer)?;
+            write_string(username.as_ref(), buf)?;
         };
         if let Some(password) = &self.password {
-            write_bytes(password, buffer)?;
+            write_bytes(password, buf)?;
         };
         //NOTE: END
         Ok(())
@@ -220,27 +220,27 @@ impl Connect {
 }
 
 impl Connack {
-    pub(crate) fn from_buffer(buffer: &mut BytesMut) -> Result<Self, Error> {
-        let flags = buffer.split_to(1).into_buf().get_u8();
-        let return_code = buffer.split_to(1).into_buf().get_u8();
+    pub(crate) fn from_buffer(buf: &mut BytesMut) -> Result<Self, Error> {
+        let flags = buf.split_to(1).get_u8();
+        let return_code = buf.split_to(1).get_u8();
         Ok(Connack {
             session_present: (flags & 0b1 == 1),
             code: ConnectReturnCode::from_u8(return_code)?,
         })
     }
-    pub(crate) fn to_buffer(&self, buffer: &mut BytesMut) -> Result<(), Error> {
-        check_remaining(buffer, 4)?;
-        let header_u8 = 0b00100000 as u8;
-        let length = 2 as u8;
-        let mut flags = 0b00000000 as u8;
+    pub(crate) fn to_buffer(&self, buf: &mut BytesMut) -> Result<(), Error> {
+        check_remaining(buf, 4)?;
+        let header: u8 = 0b00100000;
+        let length: u8 = 2;
+        let mut flags: u8 = 0b00000000;
         if self.session_present {
             flags |= 0b1;
         };
         let rc = self.code.to_u8();
-        buffer.put(header_u8);
-        buffer.put(length);
-        buffer.put(flags);
-        buffer.put(rc);
+        buf.put_u8(header);
+        buf.put_u8(length);
+        buf.put_u8(flags);
+        buf.put_u8(rc);
         Ok(())
     }
 }

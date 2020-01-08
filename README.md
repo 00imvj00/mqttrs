@@ -9,14 +9,14 @@ frameworks like [tokio](https://tokio.rs/). It is strict when decoding (e.g. ret
 encountering reserved values) and encoding (the API makes it impossible to generate an illegal
 packet).
 
-`Mqttrs` currently requires [Rust >= 1.32](https://www.rust-lang.org/learn/get-started) and supports
+`Mqttrs` currently requires [Rust >= 1.39](https://www.rust-lang.org/learn/get-started) and supports
 [MQTT 3.1.1](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html). Support for [MQTT
 5](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html) is planned for a future version.
 
 
 ## Usage
 
-Add `mqttrs = "0.2"` to your `Cargo.toml`.
+Add `mqttrs = "0.2"` and `bytes = "0.5"` to your `Cargo.toml`.
 
 ```rust
 use mqttrs::*;
@@ -43,7 +43,7 @@ assert_eq!(Ok(Some(pkt)), decode(&mut buf));
 // Example decode failures.
 let mut incomplete = encoded.split_to(10);
 assert_eq!(Ok(None), decode(&mut incomplete));
-let mut garbage = BytesMut::from(vec![0u8,0,0,0]);
+let mut garbage = BytesMut::from(&[0u8,0,0,0] as &[u8]);
 assert_eq!(Err(Error::InvalidHeader), decode(&mut garbage));
 ```
 

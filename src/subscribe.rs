@@ -1,5 +1,5 @@
 use crate::{decoder::*, encoder::*, *};
-use bytes::{Buf, BufMut, BytesMut, IntoBuf};
+use bytes::{Buf, BufMut, BytesMut};
 #[cfg(feature = "derive")]
 use serde::{Deserialize, Serialize};
 
@@ -62,37 +62,37 @@ pub struct Unsubscribe {
 }
 
 impl Subscribe {
-    pub(crate) fn from_buffer(buffer: &mut BytesMut) -> Result<Self, Error> {
-        let pid = Pid::from_buffer(buffer)?;
+    pub(crate) fn from_buffer(buf: &mut BytesMut) -> Result<Self, Error> {
+        let pid = Pid::from_buffer(buf)?;
         let mut topics: Vec<SubscribeTopic> = Vec::new();
-        while buffer.len() != 0 {
-            let topic_path = read_string(buffer)?;
-            let qos = QoS::from_u8(buffer.split_to(1).into_buf().get_u8())?;
+        while buf.len() != 0 {
+            let topic_path = read_string(buf)?;
+            let qos = QoS::from_u8(buf.split_to(1).get_u8())?;
             let topic = SubscribeTopic { topic_path, qos };
             topics.push(topic);
         }
         Ok(Subscribe { pid, topics })
     }
 
-    pub(crate) fn to_buffer(&self, buffer: &mut BytesMut) -> Result<(), Error> {
-        let header_u8: u8 = 0b10000010;
-        check_remaining(buffer, 1)?;
-        buffer.put(header_u8);
+    pub(crate) fn to_buffer(&self, buf: &mut BytesMut) -> Result<(), Error> {
+        let header: u8 = 0b10000010;
+        check_remaining(buf, 1)?;
+        buf.put_u8(header);
 
         // Length: pid(2) + topic.for_each(2+len + qos(1))
         let mut length = 2;
         for topic in &self.topics {
             length += topic.topic_path.len() + 2 + 1;
         }
-        write_length(length, buffer)?;
+        write_length(length, buf)?;
 
         // Pid
-        self.pid.to_buffer(buffer)?;
+        self.pid.to_buffer(buf)?;
 
         // Topics
         for topic in &self.topics {
-            write_string(topic.topic_path.as_ref(), buffer)?;
-            buffer.put(topic.qos.to_u8());
+            write_string(topic.topic_path.as_ref(), buf)?;
+            buf.put_u8(topic.qos.to_u8());
         }
 
         Ok(())
@@ -100,40 +100,40 @@ impl Subscribe {
 }
 
 impl Unsubscribe {
-    pub(crate) fn from_buffer(buffer: &mut BytesMut) -> Result<Self, Error> {
-        let pid = Pid::from_buffer(buffer)?;
+    pub(crate) fn from_buffer(buf: &mut BytesMut) -> Result<Self, Error> {
+        let pid = Pid::from_buffer(buf)?;
         let mut topics: Vec<String> = Vec::new();
-        while buffer.len() != 0 {
-            let topic_path = read_string(buffer)?;
+        while buf.len() != 0 {
+            let topic_path = read_string(buf)?;
             topics.push(topic_path);
         }
         Ok(Unsubscribe { pid, topics })
     }
 
-    pub(crate) fn to_buffer(&self, buffer: &mut BytesMut) -> Result<(), Error> {
-        let header_u8: u8 = 0b10100010;
+    pub(crate) fn to_buffer(&self, buf: &mut BytesMut) -> Result<(), Error> {
+        let header: u8 = 0b10100010;
         let mut length = 2;
         for topic in &self.topics {
             length += 2 + topic.len();
         }
-        check_remaining(buffer, 1)?;
-        buffer.put(header_u8);
+        check_remaining(buf, 1)?;
+        buf.put_u8(header);
 
-        write_length(length, buffer)?;
-        self.pid.to_buffer(buffer)?;
+        write_length(length, buf)?;
+        self.pid.to_buffer(buf)?;
         for topic in &self.topics {
-            write_string(topic.as_ref(), buffer)?;
+            write_string(topic.as_ref(), buf)?;
         }
         Ok(())
     }
 }
 
 impl Suback {
-    pub(crate) fn from_buffer(buffer: &mut BytesMut) -> Result<Self, Error> {
-        let pid = Pid::from_buffer(buffer)?;
+    pub(crate) fn from_buffer(buf: &mut BytesMut) -> Result<Self, Error> {
+        let pid = Pid::from_buffer(buf)?;
         let mut return_codes: Vec<SubscribeReturnCodes> = Vec::new();
-        while buffer.len() != 0 {
-            let code = buffer.split_to(1).into_buf().get_u8();
+        while buf.len() != 0 {
+            let code = buf.split_to(1).get_u8();
             let r = if code == 0x80 {
                 SubscribeReturnCodes::Failure
             } else {
@@ -143,16 +143,16 @@ impl Suback {
         }
         Ok(Suback { return_codes, pid })
     }
-    pub(crate) fn to_buffer(&self, buffer: &mut BytesMut) -> Result<(), Error> {
-        let header_u8: u8 = 0b10010000;
+    pub(crate) fn to_buffer(&self, buf: &mut BytesMut) -> Result<(), Error> {
+        let header: u8 = 0b10010000;
         let length = 2 + self.return_codes.len();
-        check_remaining(buffer, 1)?;
-        buffer.put(header_u8);
+        check_remaining(buf, 1)?;
+        buf.put_u8(header);
 
-        write_length(length, buffer)?;
-        self.pid.to_buffer(buffer)?;
+        write_length(length, buf)?;
+        self.pid.to_buffer(buf)?;
         for rc in &self.return_codes {
-            buffer.put(rc.to_u8());
+            buf.put_u8(rc.to_u8());
         }
         Ok(())
     }

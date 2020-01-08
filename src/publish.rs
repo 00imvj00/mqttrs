@@ -14,16 +14,16 @@ pub struct Publish {
 }
 
 impl Publish {
-    pub(crate) fn from_buffer(header: &Header, buffer: &mut BytesMut) -> Result<Self, Error> {
-        let topic_name = read_string(buffer)?;
+    pub(crate) fn from_buffer(header: &Header, buf: &mut BytesMut) -> Result<Self, Error> {
+        let topic_name = read_string(buf)?;
 
         let qospid = match header.qos {
             QoS::AtMostOnce => QosPid::AtMostOnce,
-            QoS::AtLeastOnce => QosPid::AtLeastOnce(Pid::from_buffer(buffer)?),
-            QoS::ExactlyOnce => QosPid::ExactlyOnce(Pid::from_buffer(buffer)?),
+            QoS::AtLeastOnce => QosPid::AtLeastOnce(Pid::from_buffer(buf)?),
+            QoS::ExactlyOnce => QosPid::ExactlyOnce(Pid::from_buffer(buf)?),
         };
 
-        let payload = buffer.to_vec();
+        let payload = buf.to_vec();
         Ok(Publish {
             dup: header.dup,
             qospid,
@@ -32,21 +32,21 @@ impl Publish {
             payload,
         })
     }
-    pub(crate) fn to_buffer(&self, buffer: &mut BytesMut) -> Result<(), Error> {
+    pub(crate) fn to_buffer(&self, buf: &mut BytesMut) -> Result<(), Error> {
         // Header
-        let mut header_u8: u8 = match self.qospid {
+        let mut header: u8 = match self.qospid {
             QosPid::AtMostOnce => 0b00110000,
             QosPid::AtLeastOnce(_) => 0b00110010,
             QosPid::ExactlyOnce(_) => 0b00110100,
         };
         if self.dup {
-            header_u8 |= 0b00001000 as u8;
+            header |= 0b00001000 as u8;
         };
         if self.retain {
-            header_u8 |= 0b00000001 as u8;
+            header |= 0b00000001 as u8;
         };
-        check_remaining(buffer, 1)?;
-        buffer.put(header_u8);
+        check_remaining(buf, 1)?;
+        buf.put_u8(header);
 
         // Length: topic (2+len) + pid (0/2) + payload (len)
         let length = self.topic_name.len()
@@ -55,20 +55,20 @@ impl Publish {
                 _ => 4,
             }
             + self.payload.len();
-        write_length(length, buffer)?;
+        write_length(length, buf)?;
 
         // Topic
-        write_string(self.topic_name.as_ref(), buffer)?;
+        write_string(self.topic_name.as_ref(), buf)?;
 
         // Pid
         match self.qospid {
             QosPid::AtMostOnce => (),
-            QosPid::AtLeastOnce(pid) => pid.to_buffer(buffer)?,
-            QosPid::ExactlyOnce(pid) => pid.to_buffer(buffer)?,
+            QosPid::AtLeastOnce(pid) => pid.to_buffer(buf)?,
+            QosPid::ExactlyOnce(pid) => pid.to_buffer(buf)?,
         }
 
         // Payload
-        buffer.put_slice(self.payload.as_slice());
+        buf.put_slice(self.payload.as_slice());
 
         Ok(())
     }

@@ -1,5 +1,4 @@
 use crate::*;
-use bytes::BufMut;
 use bytes::BytesMut;
 use proptest::{bool, collection::vec, num::*, prelude::*};
 
@@ -164,20 +163,25 @@ macro_rules! impl_proptests {
                 let decoded = decode(&mut encoded.clone().split_off(encoded.len() - 1)).unwrap();
                 prop_assert!(decoded.is_none(), "partial decode {:?} -> {:?}", encoded, decoded);
 
+                // TODO: The next part can't fail anymore because ByteMut 0.5 grows as
+                // needed. However, we want to restore support for non-growable buffers eventually
+                // (especially for no-std), so I'm keeping this code around until decode() is
+                // modified to accept other buffer types.
+
                 // Check that encoding into a small buffer fails cleanly
-                buf.clear();
-                buf.split_off(encoded.len());
-                prop_assert!(encoded.len() == buf.remaining_mut() && buf.is_empty(),
-                             "Wrong buffer init1 {}/{}/{}", encoded.len(), buf.remaining_mut(), buf.is_empty());
-                prop_assert!(encode(&pkt, &mut buf).is_ok(), "exact buffer capacity {}", buf.capacity());
-                for l in (0..encoded.len()).rev() {
-                    buf.clear();
-                    buf.split_to(1);
-                    prop_assert!(l == buf.remaining_mut() && buf.is_empty(),
-                                 "Wrong buffer init2 {}/{}/{}", l, buf.remaining_mut(), buf.is_empty());
-                    prop_assert_eq!(Err(Error::WriteZero), encode(&pkt, &mut buf),
-                                    "small buffer capacity {}/{}", buf.capacity(), encoded.len());
-                }
+                //buf.clear();
+                //buf.split_off(encoded.len());
+                //prop_assert!(encoded.len() == buf.remaining_mut() && buf.is_empty(),
+                //             "Wrong buffer init1 {}/{}/{}", encoded.len(), buf.remaining_mut(), buf.is_empty());
+                //prop_assert!(encode(&pkt, &mut buf).is_ok(), "exact buffer capacity {}", buf.capacity());
+                //for l in (0..encoded.len()).rev() {
+                //    buf.clear();
+                //    buf.split_to(1);
+                //    prop_assert!(l == buf.remaining_mut() && buf.is_empty(),
+                //                 "Wrong buffer init2 {}/{}/{}", l, buf.remaining_mut(), buf.is_empty());
+                //    prop_assert_eq!(Err(Error::WriteZero), encode(&pkt, &mut buf),
+                //                    "small buffer capacity {}/{}", buf.capacity(), encoded.len());
+                //}
             }
         }
     };
