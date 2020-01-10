@@ -65,16 +65,16 @@ impl Subscribe {
     pub(crate) fn from_buffer(buf: &mut BytesMut) -> Result<Self, Error> {
         let pid = Pid::from_buffer(buf)?;
         let mut topics: Vec<SubscribeTopic> = Vec::new();
-        while buf.len() != 0 {
+        while buf.remaining() != 0 {
             let topic_path = read_string(buf)?;
-            let qos = QoS::from_u8(buf.split_to(1).get_u8())?;
+            let qos = QoS::from_u8(buf.get_u8())?;
             let topic = SubscribeTopic { topic_path, qos };
             topics.push(topic);
         }
         Ok(Subscribe { pid, topics })
     }
 
-    pub(crate) fn to_buffer(&self, buf: &mut BytesMut) -> Result<(), Error> {
+    pub(crate) fn to_buffer(&self, buf: &mut impl BufMut) -> Result<(), Error> {
         let header: u8 = 0b10000010;
         check_remaining(buf, 1)?;
         buf.put_u8(header);
@@ -103,14 +103,14 @@ impl Unsubscribe {
     pub(crate) fn from_buffer(buf: &mut BytesMut) -> Result<Self, Error> {
         let pid = Pid::from_buffer(buf)?;
         let mut topics: Vec<String> = Vec::new();
-        while buf.len() != 0 {
+        while buf.remaining() != 0 {
             let topic_path = read_string(buf)?;
             topics.push(topic_path);
         }
         Ok(Unsubscribe { pid, topics })
     }
 
-    pub(crate) fn to_buffer(&self, buf: &mut BytesMut) -> Result<(), Error> {
+    pub(crate) fn to_buffer(&self, buf: &mut impl BufMut) -> Result<(), Error> {
         let header: u8 = 0b10100010;
         let mut length = 2;
         for topic in &self.topics {
@@ -129,11 +129,11 @@ impl Unsubscribe {
 }
 
 impl Suback {
-    pub(crate) fn from_buffer(buf: &mut BytesMut) -> Result<Self, Error> {
+    pub(crate) fn from_buffer(buf: &mut impl Buf) -> Result<Self, Error> {
         let pid = Pid::from_buffer(buf)?;
         let mut return_codes: Vec<SubscribeReturnCodes> = Vec::new();
-        while buf.len() != 0 {
-            let code = buf.split_to(1).get_u8();
+        while buf.remaining() != 0 {
+            let code = buf.get_u8();
             let r = if code == 0x80 {
                 SubscribeReturnCodes::Failure
             } else {
@@ -143,7 +143,7 @@ impl Suback {
         }
         Ok(Suback { return_codes, pid })
     }
-    pub(crate) fn to_buffer(&self, buf: &mut BytesMut) -> Result<(), Error> {
+    pub(crate) fn to_buffer(&self, buf: &mut impl BufMut) -> Result<(), Error> {
         let header: u8 = 0b10010000;
         let length = 2 + self.return_codes.len();
         check_remaining(buf, 1)?;

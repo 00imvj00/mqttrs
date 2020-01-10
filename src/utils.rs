@@ -1,4 +1,4 @@
-use bytes::{Buf, BufMut, BytesMut};
+use bytes::{Buf, BufMut};
 #[cfg(feature = "derive")]
 use serde::{Deserialize, Serialize};
 use std::{
@@ -104,10 +104,10 @@ impl Pid {
     pub fn get(self) -> u16 {
         self.0.get()
     }
-    pub(crate) fn from_buffer(buf: &mut BytesMut) -> Result<Self, Error> {
-        Self::try_from(buf.split_to(2).get_u16())
+    pub(crate) fn from_buffer(buf: &mut impl Buf) -> Result<Self, Error> {
+        Self::try_from(buf.get_u16())
     }
-    pub(crate) fn to_buffer(self, buf: &mut BytesMut) -> Result<(), Error> {
+    pub(crate) fn to_buffer(self, buf: &mut impl BufMut) -> Result<(), Error> {
         Ok(buf.put_u16(self.get()))
     }
 }

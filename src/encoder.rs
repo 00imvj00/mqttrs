@@ -1,7 +1,7 @@
 use crate::{Error, Packet};
-use bytes::{BufMut, BytesMut};
+use bytes::BufMut;
 
-/// Encode a [Packet] enum into a [BytesMut] buffer.
+/// Encode a [Packet] enum into a [BufMut] buffer.
 ///
 /// ```
 /// # use mqttrs::*;
@@ -26,8 +26,8 @@ use bytes::{BufMut, BytesMut};
 /// ```
 ///
 /// [Packet]: ../enum.Packet.html
-/// [BytesMut]: https://docs.rs/bytes/0.5.3/bytes/struct.BytesMut.html
-pub fn encode(packet: &Packet, buf: &mut BytesMut) -> Result<(), Error> {
+/// [BufMut]: https://docs.rs/bytes/0.5.3/bytes/trait.BufMut.html
+pub fn encode(packet: &Packet, buf: &mut impl BufMut) -> Result<(), Error> {
     match packet {
         Packet::Connect(connect) => connect.to_buffer(buf),
         Packet::Connack(connack) => connack.to_buffer(buf),
@@ -104,7 +104,7 @@ pub fn encode(packet: &Packet, buf: &mut BytesMut) -> Result<(), Error> {
 
 /// Check wether buffer has `len` bytes of write capacity left. Use this to return a clean
 /// Result::Err instead of panicking.
-pub(crate) fn check_remaining(buf: &BytesMut, len: usize) -> Result<(), Error> {
+pub(crate) fn check_remaining(buf: &impl BufMut, len: usize) -> Result<(), Error> {
     if buf.remaining_mut() < len {
         Err(Error::WriteZero)
     } else {
@@ -113,7 +113,7 @@ pub(crate) fn check_remaining(buf: &BytesMut, len: usize) -> Result<(), Error> {
 }
 
 /// http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718023
-pub(crate) fn write_length(len: usize, buf: &mut BytesMut) -> Result<(), Error> {
+pub(crate) fn write_length(len: usize, buf: &mut impl BufMut) -> Result<(), Error> {
     match len {
         0..=127 => check_remaining(buf, len + 1)?,
         128..=16383 => check_remaining(buf, len + 2)?,
@@ -135,12 +135,12 @@ pub(crate) fn write_length(len: usize, buf: &mut BytesMut) -> Result<(), Error> 
     Ok(())
 }
 
-pub(crate) fn write_bytes(bytes: &[u8], buf: &mut BytesMut) -> Result<(), Error> {
+pub(crate) fn write_bytes(bytes: &[u8], buf: &mut impl BufMut) -> Result<(), Error> {
     buf.put_u16(bytes.len() as u16);
     buf.put_slice(bytes);
     Ok(())
 }
 
-pub(crate) fn write_string(string: &str, buf: &mut BytesMut) -> Result<(), Error> {
+pub(crate) fn write_string(string: &str, buf: &mut impl BufMut) -> Result<(), Error> {
     write_bytes(string.as_bytes(), buf)
 }

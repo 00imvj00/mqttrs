@@ -8,6 +8,8 @@
   things](https://github.com/tokio-rs/bytes/blob/master/CHANGELOG.md).
 * Implemented `Default for Pid`, `From<u16> for Pid`, and `TryFrom<Pid> for u16`. The `try_from()`
   method already existed but now comes from the `std::convert::TryFrom` trait.
+* `encode()` now takes anything that implements the `BufMut` trait, not just a `ByteMut` struct. For
+  technical reasons, `decode()` still takes `BytesMut`.
 
 ## Bugfixes
 

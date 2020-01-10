@@ -3,6 +3,9 @@ use bytes::{Buf, BytesMut};
 
 /// Decode bytes from a [BytesMut] buffer as a [Packet] enum.
 ///
+/// The buf is never actually written to, it only takes a `BytesMut` instead of a `Bytes` to
+/// allow using the same buffer to read bytes from network.
+///
 /// ```
 /// # use mqttrs::*;
 /// # use bytes::*;
@@ -27,8 +30,7 @@ use bytes::{Buf, BytesMut};
 pub fn decode(buf: &mut BytesMut) -> Result<Option<Packet>, Error> {
     if let Some((header, remaining_len)) = read_header(buf)? {
         // Advance the buffer position to the next packet, and parse the current packet
-        let p = &mut buf.split_to(remaining_len);
-        Ok(Some(read_packet(header, p)?))
+        Ok(Some(read_packet(header, &mut buf.split_to(remaining_len))?))
     } else {
         // Don't have a full packet
         Ok(None)
@@ -63,13 +65,13 @@ fn read_header(buf: &mut BytesMut) -> Result<Option<(Header, usize)>, Error> {
             len += (byte as usize & 0x7F) << (pos * 7);
             if (byte & 0x80) == 0 {
                 // Continuation bit == 0, length is parsed
-                if buf.len() < 2 + pos + len {
+                if buf.remaining() < 2 + pos + len {
                     // Won't be able to read full packet
                     return Ok(None);
                 }
                 // Parse header byte, skip past the header, and return
-                let header = Header::new(*buf.get(0).unwrap())?;
-                buf.advance(pos + 2);
+                let header = Header::new(buf.get_u8())?;
+                buf.advance(pos + 1);
                 return Ok(Some((header, len)));
             }
         } else {
@@ -124,8 +126,8 @@ pub(crate) fn read_string(buf: &mut BytesMut) -> Result<String, Error> {
 }
 
 pub(crate) fn read_bytes(buf: &mut BytesMut) -> Result<Vec<u8>, Error> {
-    let len = buf.split_to(2).get_u16() as usize;
-    if len > buf.len() {
+    let len = buf.get_u16() as usize;
+    if len > buf.remaining() {
         Err(Error::InvalidLength)
     } else {
         Ok(buf.split_to(len).to_vec())
@@ -135,7 +137,6 @@ pub(crate) fn read_bytes(buf: &mut BytesMut) -> Result<Vec<u8>, Error> {
 #[cfg(test)]
 mod test {
     use crate::decoder::*;
-    use bytes::BytesMut;
 
     macro_rules! header {
         ($t:ident, $d:expr, $q:ident, $r:expr) => {
@@ -198,7 +199,7 @@ mod test {
     #[test]
     fn header_len() {
         let h = header!(Connect, false, AtMostOnce, false);
-        for (res, bytes, buflen) in vec![
+        for (res, mut bytes, buflen) in vec![
             (Ok(Some((h, 0))),          vec![1 << 4, 0],   2),
             (Ok(None),                  vec![1 << 4, 127], 128),
             (Ok(Some((h, 127))),        vec![1 << 4, 127], 129),
@@ -209,8 +210,8 @@ mod test {
             (Ok(Some((h, 10000))),      vec![1 << 4, 0x80+16, 78], 10003),
             (Err(Error::InvalidHeader), vec![1 << 4, 0x80, 0x80, 0x80, 0x80], 10),
         ] {
-            let mut buf = BytesMut::from(bytes.as_slice());
-            buf.resize(buflen, 0);
+            bytes.resize(buflen, 0);
+            let mut buf = bm(bytes.as_slice());
             assert_eq!(res, read_header(&mut buf));
         }
     }

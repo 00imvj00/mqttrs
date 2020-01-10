@@ -23,16 +23,15 @@ impl Publish {
             QoS::ExactlyOnce => QosPid::ExactlyOnce(Pid::from_buffer(buf)?),
         };
 
-        let payload = buf.to_vec();
         Ok(Publish {
             dup: header.dup,
             qospid,
             retain: header.retain,
             topic_name,
-            payload,
+            payload: buf.to_vec(),
         })
     }
-    pub(crate) fn to_buffer(&self, buf: &mut BytesMut) -> Result<(), Error> {
+    pub(crate) fn to_buffer(&self, buf: &mut impl BufMut) -> Result<(), Error> {
         // Header
         let mut header: u8 = match self.qospid {
             QosPid::AtMostOnce => 0b00110000,
