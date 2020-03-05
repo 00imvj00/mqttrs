@@ -44,6 +44,13 @@
 //! [decode()]: fn.decode.html
 //! [bytes::BytesMut]: https://docs.rs/bytes/0.5.3/bytes/struct.BytesMut.html
 
+#![cfg_attr(not(test), no_std)]
+
+#[cfg(feature = "std")]
+extern crate std;
+
+extern crate alloc;
+
 mod connect;
 mod decoder;
 mod encoder;

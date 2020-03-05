@@ -1,12 +1,16 @@
+use alloc::string::String;
 use bytes::{Buf, BufMut};
+use core::{convert::TryFrom, fmt, num::NonZeroU16};
+
 #[cfg(feature = "derive")]
 use serde::{Deserialize, Serialize};
+
+#[cfg(feature = "std")]
+use alloc::format;
+#[cfg(feature = "std")]
 use std::{
-    convert::TryFrom,
     error::Error as ErrorTrait,
-    fmt,
     io::{Error as IoError, ErrorKind},
-    num::NonZeroU16,
 };
 
 /// Errors returned by [`encode()`] and [`decode()`].
@@ -35,18 +39,25 @@ pub enum Error {
     /// length rather than a buffer size issue.
     InvalidLength,
     /// Trying to decode a non-utf8 string.
-    InvalidString(std::str::Utf8Error),
+    InvalidString(core::str::Utf8Error),
     /// Catch-all error when converting from `std::io::Error`.
     ///
+    /// Note: Only available when std is available.
     /// You'll hopefully never see this.
+    #[cfg(feature = "std")]
     IoError(ErrorKind, String),
 }
+
+#[cfg(feature = "std")]
 impl ErrorTrait for Error {}
+
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self)
     }
 }
+
+#[cfg(feature = "std")]
 impl From<Error> for IoError {
     fn from(err: Error) -> IoError {
         match err {
@@ -55,6 +66,8 @@ impl From<Error> for IoError {
         }
     }
 }
+
+#[cfg(feature = "std")]
 impl From<IoError> for Error {
     fn from(err: IoError) -> Error {
         match err.kind() {
@@ -116,7 +129,7 @@ impl Default for Pid {
         Pid::new()
     }
 }
-impl std::ops::Add<u16> for Pid {
+impl core::ops::Add<u16> for Pid {
     type Output = Pid;
     /// Adding a `u16` to a `Pid` will wrap around and avoid 0.
     fn add(self, u: u16) -> Pid {
@@ -127,12 +140,12 @@ impl std::ops::Add<u16> for Pid {
         Pid(NonZeroU16::new(n).unwrap())
     }
 }
-impl std::ops::Sub<u16> for Pid {
+impl core::ops::Sub<u16> for Pid {
     type Output = Pid;
     /// Adding a `u16` to a `Pid` will wrap around and avoid 0.
     fn sub(self, u: u16) -> Pid {
         let n = match self.get().overflowing_sub(u) {
-            (0, _) => std::u16::MAX,
+            (0, _) => core::u16::MAX,
             (n, false) => n,
             (n, true) => n - 1,
         };
@@ -236,22 +249,24 @@ impl QosPid {
 #[cfg(test)]
 mod test {
     use crate::Pid;
-    use std::convert::TryFrom;
+    use alloc::vec;
+    use alloc::vec::Vec;
+    use core::convert::TryFrom;
 
     #[test]
     fn pid_add_sub() {
         let t: Vec<(u16, u16, u16, u16)> = vec![
             (2, 1, 1, 3),
             (100, 1, 99, 101),
-            (1, 1, std::u16::MAX, 2),
-            (1, 2, std::u16::MAX - 1, 3),
-            (1, 3, std::u16::MAX - 2, 4),
-            (std::u16::MAX, 1, std::u16::MAX - 1, 1),
-            (std::u16::MAX, 2, std::u16::MAX - 2, 2),
-            (10, std::u16::MAX, 10, 10),
+            (1, 1, core::u16::MAX, 2),
+            (1, 2, core::u16::MAX - 1, 3),
+            (1, 3, core::u16::MAX - 2, 4),
+            (core::u16::MAX, 1, core::u16::MAX - 1, 1),
+            (core::u16::MAX, 2, core::u16::MAX - 2, 2),
+            (10, core::u16::MAX, 10, 10),
             (10, 0, 10, 10),
             (1, 0, 1, 1),
-            (std::u16::MAX, 0, std::u16::MAX, std::u16::MAX),
+            (core::u16::MAX, 0, core::u16::MAX, core::u16::MAX),
         ];
         for (cur, d, prev, next) in t {
             let sub = Pid::try_from(cur).unwrap() - d;

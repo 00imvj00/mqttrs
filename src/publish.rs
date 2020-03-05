@@ -1,5 +1,6 @@
 use crate::{decoder::*, encoder::*, *};
 use bytes::{BufMut, BytesMut};
+use alloc::{string::String, vec::Vec};
 
 /// Publish packet ([MQTT 3.3]).
 ///
