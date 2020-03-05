@@ -7,7 +7,7 @@ use crate::*;
 ///
 /// ```
 /// # use mqttrs::*;
-/// # use std::convert::TryFrom;
+/// # use core::convert::TryFrom;
 /// // Simplest form
 /// let pkt = Packet::Connack(Connack { session_present: false,
 ///                                     code: ConnectReturnCode::Accepted });

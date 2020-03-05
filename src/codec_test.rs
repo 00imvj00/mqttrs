@@ -1,7 +1,9 @@
 use crate::*;
 use bytes::BytesMut;
 use proptest::{bool, collection::vec, num::*, prelude::*};
-use std::convert::TryFrom;
+use core::convert::TryFrom;
+use alloc::string::String;
+use alloc::format;
 
 // Proptest strategies to generate packet elements
 prop_compose! {
@@ -15,7 +17,7 @@ prop_compose! {
     }
 }
 prop_compose! {
-    fn stg_pid()(pid in 1..std::u16::MAX) -> Pid {
+    fn stg_pid()(pid in 1..core::u16::MAX) -> Pid {
         Pid::try_from(pid).unwrap()
     }
 }

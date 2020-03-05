@@ -1,4 +1,5 @@
 use crate::*;
+use alloc::{string::String, vec::Vec};
 use bytes::{Buf, BytesMut};
 
 /// Decode bytes from a [BytesMut] buffer as a [Packet] enum.
@@ -137,6 +138,7 @@ pub(crate) fn read_bytes(buf: &mut BytesMut) -> Result<Vec<u8>, Error> {
 #[cfg(test)]
 mod test {
     use crate::decoder::*;
+    use alloc::vec;
 
     macro_rules! header {
         ($t:ident, $d:expr, $q:ident, $r:expr) => {

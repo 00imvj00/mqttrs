@@ -1,4 +1,5 @@
 use crate::*;
+use alloc::string::{String, ToString};
 use bytes::BytesMut;
 
 fn bm(d: &[u8]) -> BytesMut {

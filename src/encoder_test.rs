@@ -1,6 +1,8 @@
 use crate::*;
 use bytes::BytesMut;
-use std::convert::TryFrom;
+use core::convert::TryFrom;
+use alloc::string::ToString;
+use alloc::vec;
 
 macro_rules! assert_decode {
     ($res:pat, $pkt:expr) => {
