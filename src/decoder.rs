@@ -1,15 +1,18 @@
 use crate::*;
-use bytes::{Buf, BytesMut, IntoBuf};
+use bytes::{Buf, BytesMut};
 
 /// Decode bytes from a [BytesMut] buffer as a [Packet] enum.
+///
+/// The buf is never actually written to, it only takes a `BytesMut` instead of a `Bytes` to
+/// allow using the same buffer to read bytes from network.
 ///
 /// ```
 /// # use mqttrs::*;
 /// # use bytes::*;
 /// // Fill a buffer with encoded data (probably from a `TcpStream`).
-/// let mut buf = BytesMut::from(vec![0b00110000, 11,
-///                                   0, 4, 't' as u8, 'e' as u8, 's' as u8, 't' as u8,
-///                                  'h' as u8, 'e' as u8, 'l' as u8, 'l' as u8, 'o' as u8]);
+/// let mut buf = BytesMut::from(&[0b00110000, 11,
+///                                0, 4, 't' as u8, 'e' as u8, 's' as u8, 't' as u8,
+///                                'h' as u8, 'e' as u8, 'l' as u8, 'l' as u8, 'o' as u8] as &[u8]);
 ///
 /// // Parse the bytes and check the result.
 /// match decode(&mut buf) {
@@ -23,53 +26,52 @@ use bytes::{Buf, BytesMut, IntoBuf};
 /// ```
 ///
 /// [Packet]: ../enum.Packet.html
-/// [BytesMut]: https://docs.rs/bytes/0.4.12/bytes/struct.BytesMut.html
-pub fn decode(buffer: &mut BytesMut) -> Result<Option<Packet>, Error> {
-    if let Some((header, remaining_len)) = read_header(buffer)? {
+/// [BytesMut]: https://docs.rs/bytes/0.5.3/bytes/struct.BytesMut.html
+pub fn decode(buf: &mut BytesMut) -> Result<Option<Packet>, Error> {
+    if let Some((header, remaining_len)) = read_header(buf)? {
         // Advance the buffer position to the next packet, and parse the current packet
-        let p = &mut buffer.split_to(remaining_len);
-        Ok(Some(read_packet(header, p)?))
+        Ok(Some(read_packet(header, &mut buf.split_to(remaining_len))?))
     } else {
         // Don't have a full packet
         Ok(None)
     }
 }
 
-fn read_packet(header: Header, buffer: &mut BytesMut) -> Result<Packet, Error> {
+fn read_packet(header: Header, buf: &mut BytesMut) -> Result<Packet, Error> {
     Ok(match header.typ {
         PacketType::Pingreq => Packet::Pingreq,
         PacketType::Pingresp => Packet::Pingresp,
         PacketType::Disconnect => Packet::Disconnect,
-        PacketType::Connect => Connect::from_buffer(buffer)?.into(),
-        PacketType::Connack => Connack::from_buffer(buffer)?.into(),
-        PacketType::Publish => Publish::from_buffer(&header, buffer)?.into(),
-        PacketType::Puback => Packet::Puback(Pid::from_buffer(buffer)?),
-        PacketType::Pubrec => Packet::Pubrec(Pid::from_buffer(buffer)?),
-        PacketType::Pubrel => Packet::Pubrel(Pid::from_buffer(buffer)?),
-        PacketType::Pubcomp => Packet::Pubcomp(Pid::from_buffer(buffer)?),
-        PacketType::Subscribe => Subscribe::from_buffer(buffer)?.into(),
-        PacketType::Suback => Suback::from_buffer(buffer)?.into(),
-        PacketType::Unsubscribe => Unsubscribe::from_buffer(buffer)?.into(),
-        PacketType::Unsuback => Packet::Unsuback(Pid::from_buffer(buffer)?),
+        PacketType::Connect => Connect::from_buffer(buf)?.into(),
+        PacketType::Connack => Connack::from_buffer(buf)?.into(),
+        PacketType::Publish => Publish::from_buffer(&header, buf)?.into(),
+        PacketType::Puback => Packet::Puback(Pid::from_buffer(buf)?),
+        PacketType::Pubrec => Packet::Pubrec(Pid::from_buffer(buf)?),
+        PacketType::Pubrel => Packet::Pubrel(Pid::from_buffer(buf)?),
+        PacketType::Pubcomp => Packet::Pubcomp(Pid::from_buffer(buf)?),
+        PacketType::Subscribe => Subscribe::from_buffer(buf)?.into(),
+        PacketType::Suback => Suback::from_buffer(buf)?.into(),
+        PacketType::Unsubscribe => Unsubscribe::from_buffer(buf)?.into(),
+        PacketType::Unsuback => Packet::Unsuback(Pid::from_buffer(buf)?),
     })
 }
 
 /// Read the parsed header and remaining_len from the buffer. Only return Some() and advance the
-/// buffer position if there is enough data in th ebuffer to read the full packet.
-fn read_header(buffer: &mut BytesMut) -> Result<Option<(Header, usize)>, Error> {
+/// buffer position if there is enough data in the buffer to read the full packet.
+fn read_header(buf: &mut BytesMut) -> Result<Option<(Header, usize)>, Error> {
     let mut len: usize = 0;
     for pos in 0..=3 {
-        if let Some(&byte) = buffer.get(pos + 1) {
+        if let Some(&byte) = buf.get(pos + 1) {
             len += (byte as usize & 0x7F) << (pos * 7);
             if (byte & 0x80) == 0 {
                 // Continuation bit == 0, length is parsed
-                if buffer.len() < 2 + pos + len {
+                if buf.remaining() < 2 + pos + len {
                     // Won't be able to read full packet
                     return Ok(None);
                 }
                 // Parse header byte, skip past the header, and return
-                let header = Header::new(*buffer.get(0).unwrap())?;
-                buffer.advance(pos + 2);
+                let header = Header::new(buf.get_u8())?;
+                buf.advance(pos + 1);
                 return Ok(Some((header, len)));
             }
         } else {
@@ -119,23 +121,22 @@ impl Header {
     }
 }
 
-pub(crate) fn read_string(buffer: &mut BytesMut) -> Result<String, Error> {
-    String::from_utf8(read_bytes(buffer)?).map_err(|e| Error::InvalidString(e.utf8_error()))
+pub(crate) fn read_string(buf: &mut BytesMut) -> Result<String, Error> {
+    String::from_utf8(read_bytes(buf)?).map_err(|e| Error::InvalidString(e.utf8_error()))
 }
 
-pub(crate) fn read_bytes(buffer: &mut BytesMut) -> Result<Vec<u8>, Error> {
-    let len = buffer.split_to(2).into_buf().get_u16_be() as usize;
-    if len > buffer.len() {
+pub(crate) fn read_bytes(buf: &mut BytesMut) -> Result<Vec<u8>, Error> {
+    let len = buf.get_u16() as usize;
+    if len > buf.remaining() {
         Err(Error::InvalidLength)
     } else {
-        Ok(buffer.split_to(len).to_vec())
+        Ok(buf.split_to(len).to_vec())
     }
 }
 
 #[cfg(test)]
 mod test {
     use crate::decoder::*;
-    use bytes::BytesMut;
 
     macro_rules! header {
         ($t:ident, $d:expr, $q:ident, $r:expr) => {
@@ -146,6 +147,10 @@ mod test {
                 retain: $r,
             }
         };
+    }
+
+    fn bm(d: &[u8]) -> BytesMut {
+        BytesMut::from(d)
     }
 
     /// Test all possible header first byte, using remaining_len=0.
@@ -184,8 +189,8 @@ mod test {
                 None if ((n & 0b110) == 0b110) && (n >> 4 == 3) => Err(Error::InvalidQos(3)),
                 None => Err(Error::InvalidHeader),
             };
-            let buf = &mut BytesMut::from(vec![n, 0]);
-            assert_eq!(res, read_header(buf), "{:08b}", n);
+            let mut buf = bm(&[n, 0]);
+            assert_eq!(res, read_header(&mut buf), "{:08b}", n);
         }
     }
 
@@ -194,7 +199,7 @@ mod test {
     #[test]
     fn header_len() {
         let h = header!(Connect, false, AtMostOnce, false);
-        for (res, bytes, buflen) in vec![
+        for (res, mut bytes, buflen) in vec![
             (Ok(Some((h, 0))),          vec![1 << 4, 0],   2),
             (Ok(None),                  vec![1 << 4, 127], 128),
             (Ok(Some((h, 127))),        vec![1 << 4, 127], 129),
@@ -205,15 +210,15 @@ mod test {
             (Ok(Some((h, 10000))),      vec![1 << 4, 0x80+16, 78], 10003),
             (Err(Error::InvalidHeader), vec![1 << 4, 0x80, 0x80, 0x80, 0x80], 10),
         ] {
-            let mut buf = BytesMut::from(bytes);
-            buf.resize(buflen, 0);
+            bytes.resize(buflen, 0);
+            let mut buf = bm(bytes.as_slice());
             assert_eq!(res, read_header(&mut buf));
         }
     }
 
     #[test]
     fn non_utf8_string() {
-        let mut data = BytesMut::from(vec![
+        let mut data = bm(&[
             0b00110000, 10, // type=Publish, remaining_len=10
             0x00, 0x03, 'a' as u8, '/' as u8, 0xc0 as u8, // Topic with Invalid utf8
             'h' as u8, 'e' as u8, 'l' as u8, 'l' as u8, 'o' as u8, // payload
@@ -228,7 +233,7 @@ mod test {
     /// are rarer.
     #[test]
     fn inner_length_too_long() {
-        let mut data = BytesMut::from(vec![
+        let mut data = bm(&[
             0b00010000, 20, // Connect packet, remaining_len=20
             0x00, 0x04, 'M' as u8, 'Q' as u8, 'T' as u8, 'T' as u8, 0x04,
             0b01000000, // +password

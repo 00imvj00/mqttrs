@@ -1,5 +1,8 @@
-use bytes::{Buf, BufMut, BytesMut, IntoBuf};
+use bytes::{Buf, BufMut};
+#[cfg(feature = "derive")]
+use serde::{Deserialize, Serialize};
 use std::{
+    convert::TryFrom,
     error::Error as ErrorTrait,
     fmt,
     io::{Error as IoError, ErrorKind},
@@ -66,10 +69,22 @@ impl From<IoError> for Error {
 /// For packets with [`QoS::AtLeastOne` or `QoS::ExactlyOnce`] delivery.
 ///
 /// ```rust
-/// # use mqttrs::{Pid, Packet};
-/// let pid = Pid::try_from(42).expect("illegal pid value");
-/// let next_pid = pid + 1;
-/// let pending_acks = std::collections::HashMap::<Pid, Packet>::new();
+/// # use mqttrs::{Packet, Pid, QosPid};
+/// # use std::convert::TryFrom;
+/// #[derive(Default)]
+/// struct Session {
+///    pid: Pid,
+/// }
+/// impl Session {
+///    pub fn next_pid(&mut self) -> Pid {
+///        self.pid = self.pid + 1;
+///        self.pid
+///    }
+/// }
+///
+/// let mut sess = Session::default();
+/// assert_eq!(2, sess.next_pid().get());
+/// assert_eq!(Pid::try_from(3).unwrap(), sess.next_pid());
 /// ```
 ///
 /// The spec ([MQTT-2.3.1-1], [MQTT-2.2.1-3]) disallows a pid of 0.
@@ -78,33 +93,32 @@ impl From<IoError> for Error {
 /// [MQTT-2.3.1-1]: https://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718025
 /// [MQTT-2.2.1-3]: https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901026
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "derive", derive(Serialize, Deserialize))]
 pub struct Pid(NonZeroU16);
 impl Pid {
     /// Returns a new `Pid` with value `1`.
     pub fn new() -> Self {
         Pid(NonZeroU16::new(1).unwrap())
     }
-    /// Returns a new `Pid` with specified value.
-    // Not using std::convert::TryFrom so that don't have to depend on rust 1.34.
-    pub fn try_from(u: u16) -> Result<Self, Error> {
-        match NonZeroU16::new(u) {
-            Some(nz) => Ok(Pid(nz)),
-            None => Err(Error::InvalidPid),
-        }
-    }
     /// Get the `Pid` as a raw `u16`.
     pub fn get(self) -> u16 {
         self.0.get()
     }
-    pub(crate) fn from_buffer(buf: &mut BytesMut) -> Result<Self, Error> {
-        Self::try_from(buf.split_to(2).into_buf().get_u16_be())
+    pub(crate) fn from_buffer(buf: &mut impl Buf) -> Result<Self, Error> {
+        Self::try_from(buf.get_u16())
     }
-    pub(crate) fn to_buffer(self, buf: &mut BytesMut) -> Result<(), Error> {
-        Ok(buf.put_u16_be(self.get()))
+    pub(crate) fn to_buffer(self, buf: &mut impl BufMut) -> Result<(), Error> {
+        Ok(buf.put_u16(self.get()))
+    }
+}
+impl Default for Pid {
+    fn default() -> Pid {
+        Pid::new()
     }
 }
 impl std::ops::Add<u16> for Pid {
     type Output = Pid;
+    /// Adding a `u16` to a `Pid` will wrap around and avoid 0.
     fn add(self, u: u16) -> Pid {
         let n = match self.get().overflowing_add(u) {
             (n, false) => n,
@@ -115,6 +129,7 @@ impl std::ops::Add<u16> for Pid {
 }
 impl std::ops::Sub<u16> for Pid {
     type Output = Pid;
+    /// Adding a `u16` to a `Pid` will wrap around and avoid 0.
     fn sub(self, u: u16) -> Pid {
         let n = match self.get().overflowing_sub(u) {
             (0, _) => std::u16::MAX,
@@ -124,11 +139,28 @@ impl std::ops::Sub<u16> for Pid {
         Pid(NonZeroU16::new(n).unwrap())
     }
 }
+impl From<Pid> for u16 {
+    /// Convert `Pid` to `u16`.
+    fn from(p: Pid) -> Self {
+        p.0.get()
+    }
+}
+impl TryFrom<u16> for Pid {
+    type Error = Error;
+    /// Convert `u16` to `Pid`. Will fail for value 0.
+    fn try_from(u: u16) -> Result<Self, Error> {
+        match NonZeroU16::new(u) {
+            Some(nz) => Ok(Pid(nz)),
+            None => Err(Error::InvalidPid),
+        }
+    }
+}
 
 /// Packet delivery [Quality of Service] level.
 ///
 /// [Quality of Service]: http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718099
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "derive", derive(Serialize, Deserialize))]
 pub enum QoS {
     /// `QoS 0`. No ack needed.
     AtMostOnce,
@@ -163,6 +195,7 @@ impl QoS {
 /// [`QoS`]: enum.QoS.html
 /// [`Pid`]: struct.Pid.html
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "derive", derive(Serialize, Deserialize))]
 pub enum QosPid {
     AtMostOnce,
     AtLeastOnce(Pid),
@@ -203,6 +236,7 @@ impl QosPid {
 #[cfg(test)]
 mod test {
     use crate::Pid;
+    use std::convert::TryFrom;
 
     #[test]
     fn pid_add_sub() {
