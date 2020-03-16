@@ -57,3 +57,12 @@ subscriptions...).
 
 This doesn't add mqtt as a serde data format; you still need to use the `mqttrs::{decode,encode}`
 functions.
+
+## Optional `#[no_std]` support.
+
+Use `mqttrs = { version = "0.2", default-features = false }` in your `Cargo.toml` to remove the
+default `std` feature.
+
+Disabling this feature comes with the cost of not implementing the `std::error::Error` trait,
+as well as not supporting `std::io` read and write. This allows usage in embedded devices
+where the standard library is not available.
