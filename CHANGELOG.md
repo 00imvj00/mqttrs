@@ -10,6 +10,8 @@
   method already existed but now comes from the `std::convert::TryFrom` trait.
 * `encode()` now takes anything that implements the `BufMut` trait, not just a `ByteMut` struct. For
   technical reasons, `decode()` still takes `BytesMut`.
+* Added option to opt-out of std library, allowing usage in `#[no_std]` projects, at the only cost
+  of giving up the `Error` trait from std as well as `std::io` integration.
 
 ## Bugfixes
 
