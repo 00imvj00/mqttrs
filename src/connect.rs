@@ -28,14 +28,20 @@ impl Protocol {
             _ => Err(Error::InvalidProtocol(name.into(), level)),
         }
     }
-    pub(crate) fn to_buffer(&self, buf: &mut impl BufMut) -> Result<(), Error> {
+    pub(crate) fn to_buffer(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         match self {
             Protocol::MQTT311 => {
-                Ok(buf.put_slice(&[0u8, 4, 'M' as u8, 'Q' as u8, 'T' as u8, 'T' as u8, 4]))
+                let slice = &[0u8, 4, 'M' as u8, 'Q' as u8, 'T' as u8, 'T' as u8, 4];
+                buf.put_slice(slice);
+                Ok(slice.len())
             }
-            Protocol::MQIsdp => Ok(buf.put_slice(&[
-                0u8, 4, 'M' as u8, 'Q' as u8, 'i' as u8, 's' as u8, 'd' as u8, 'p' as u8, 4,
-            ])),
+            Protocol::MQIsdp => {
+                let slice = &[
+                    0u8, 4, 'M' as u8, 'Q' as u8, 'i' as u8, 's' as u8, 'd' as u8, 'p' as u8, 4,
+                ];
+                buf.put_slice(slice);
+                Ok(slice.len())
+            }
         }
     }
 }
@@ -165,15 +171,15 @@ impl Connect {
             clean_session,
         })
     }
-    pub(crate) fn to_buffer(&self, buf: &mut impl BufMut) -> Result<(), Error> {
+    pub(crate) fn to_buffer(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         let header: u8 = 0b00010000;
-        let mut length: usize = 6 + 1 + 1; //NOTE: protocol_name(6) + protocol_level(1) + flags(1);
+        let mut length: usize = 6 + 1 + 1; // NOTE: protocol_name(6) + protocol_level(1) + flags(1);
         let mut connect_flags: u8 = 0b00000000;
         if self.clean_session {
             connect_flags |= 0b10;
         };
         length += 2 + self.client_id.len();
-        length += 2; //keep alive
+        length += 2; // keep alive
         if let Some(username) = &self.username {
             connect_flags |= 0b10000000;
             length += username.len();
@@ -196,9 +202,9 @@ impl Connect {
         };
         check_remaining(buf, length + 1)?;
 
-        //NOTE: putting data into buffer.
+        // NOTE: putting data into buffer.
         buf.put_u8(header);
-        write_length(length, buf)?;
+        let write_len = write_length(length, buf)? + 1;
         self.protocol.to_buffer(buf)?;
         buf.put_u8(connect_flags);
         buf.put_u16(self.keep_alive);
@@ -215,8 +221,8 @@ impl Connect {
         if let Some(password) = &self.password {
             write_bytes(password, buf)?;
         };
-        //NOTE: END
-        Ok(())
+        // NOTE: END
+        Ok(write_len)
     }
 }
 
@@ -229,7 +235,7 @@ impl Connack {
             code: ConnectReturnCode::from_u8(return_code)?,
         })
     }
-    pub(crate) fn to_buffer(&self, buf: &mut impl BufMut) -> Result<(), Error> {
+    pub(crate) fn to_buffer(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         check_remaining(buf, 4)?;
         let header: u8 = 0b00100000;
         let length: u8 = 2;
@@ -242,6 +248,6 @@ impl Connack {
         buf.put_u8(length);
         buf.put_u8(flags);
         buf.put_u8(rc);
-        Ok(())
+        Ok(4)
     }
 }

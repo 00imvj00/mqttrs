@@ -1,6 +1,6 @@
 use crate::{decoder::*, encoder::*, *};
-use bytes::{BufMut, BytesMut};
 use alloc::{string::String, vec::Vec};
+use bytes::{BufMut, BytesMut};
 
 /// Publish packet ([MQTT 3.3]).
 ///
@@ -32,7 +32,7 @@ impl Publish {
             payload: buf.to_vec(),
         })
     }
-    pub(crate) fn to_buffer(&self, buf: &mut impl BufMut) -> Result<(), Error> {
+    pub(crate) fn to_buffer(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         // Header
         let mut header: u8 = match self.qospid {
             QosPid::AtMostOnce => 0b00110000,
@@ -55,7 +55,8 @@ impl Publish {
                 _ => 4,
             }
             + self.payload.len();
-        write_length(length, buf)?;
+
+        let write_len = write_length(length, buf)? + 1;
 
         // Topic
         write_string(self.topic_name.as_ref(), buf)?;
@@ -70,6 +71,6 @@ impl Publish {
         // Payload
         buf.put_slice(self.payload.as_slice());
 
-        Ok(())
+        Ok(write_len)
     }
 }

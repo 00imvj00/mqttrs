@@ -27,7 +27,7 @@ use bytes::BufMut;
 ///
 /// [Packet]: ../enum.Packet.html
 /// [BufMut]: https://docs.rs/bytes/0.5.3/bytes/trait.BufMut.html
-pub fn encode(packet: &Packet, buf: &mut impl BufMut) -> Result<(), Error> {
+pub fn encode(packet: &Packet, buf: &mut impl BufMut) -> Result<usize, Error> {
     match packet {
         Packet::Connect(connect) => connect.to_buffer(buf),
         Packet::Connack(connack) => connack.to_buffer(buf),
@@ -38,7 +38,8 @@ pub fn encode(packet: &Packet, buf: &mut impl BufMut) -> Result<(), Error> {
             let length: u8 = 2;
             buf.put_u8(header);
             buf.put_u8(length);
-            pid.to_buffer(buf)
+            pid.to_buffer(buf)?;
+            Ok(4)
         }
         Packet::Pubrec(pid) => {
             check_remaining(buf, 4)?;
@@ -46,7 +47,8 @@ pub fn encode(packet: &Packet, buf: &mut impl BufMut) -> Result<(), Error> {
             let length: u8 = 2;
             buf.put_u8(header);
             buf.put_u8(length);
-            pid.to_buffer(buf)
+            pid.to_buffer(buf)?;
+            Ok(4)
         }
         Packet::Pubrel(pid) => {
             check_remaining(buf, 4)?;
@@ -54,7 +56,8 @@ pub fn encode(packet: &Packet, buf: &mut impl BufMut) -> Result<(), Error> {
             let length: u8 = 2;
             buf.put_u8(header);
             buf.put_u8(length);
-            pid.to_buffer(buf)
+            pid.to_buffer(buf)?;
+            Ok(4)
         }
         Packet::Pubcomp(pid) => {
             check_remaining(buf, 4)?;
@@ -62,7 +65,8 @@ pub fn encode(packet: &Packet, buf: &mut impl BufMut) -> Result<(), Error> {
             let length: u8 = 2;
             buf.put_u8(header);
             buf.put_u8(length);
-            pid.to_buffer(buf)
+            pid.to_buffer(buf)?;
+            Ok(4)
         }
         Packet::Subscribe(subscribe) => subscribe.to_buffer(buf),
         Packet::Suback(suback) => suback.to_buffer(buf),
@@ -73,7 +77,8 @@ pub fn encode(packet: &Packet, buf: &mut impl BufMut) -> Result<(), Error> {
             let length: u8 = 2;
             buf.put_u8(header);
             buf.put_u8(length);
-            pid.to_buffer(buf)
+            pid.to_buffer(buf)?;
+            Ok(4)
         }
         Packet::Pingreq => {
             check_remaining(buf, 2)?;
@@ -81,7 +86,7 @@ pub fn encode(packet: &Packet, buf: &mut impl BufMut) -> Result<(), Error> {
             let length: u8 = 0;
             buf.put_u8(header);
             buf.put_u8(length);
-            Ok(())
+            Ok(2)
         }
         Packet::Pingresp => {
             check_remaining(buf, 2)?;
@@ -89,7 +94,7 @@ pub fn encode(packet: &Packet, buf: &mut impl BufMut) -> Result<(), Error> {
             let length: u8 = 0;
             buf.put_u8(header);
             buf.put_u8(length);
-            Ok(())
+            Ok(2)
         }
         Packet::Disconnect => {
             check_remaining(buf, 2)?;
@@ -97,7 +102,7 @@ pub fn encode(packet: &Packet, buf: &mut impl BufMut) -> Result<(), Error> {
             let length: u8 = 0;
             buf.put_u8(header);
             buf.put_u8(length);
-            Ok(())
+            Ok(2)
         }
     }
 }
@@ -113,14 +118,26 @@ pub(crate) fn check_remaining(buf: &impl BufMut, len: usize) -> Result<(), Error
 }
 
 /// http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718023
-pub(crate) fn write_length(len: usize, buf: &mut impl BufMut) -> Result<(), Error> {
-    match len {
-        0..=127 => check_remaining(buf, len + 1)?,
-        128..=16383 => check_remaining(buf, len + 2)?,
-        16384..=2097151 => check_remaining(buf, len + 3)?,
-        2097152..=268435455 => check_remaining(buf, len + 4)?,
+pub(crate) fn write_length(len: usize, buf: &mut impl BufMut) -> Result<usize, Error> {
+    let write_len = match len {
+        0..=127 => {
+            check_remaining(buf, len + 1)?;
+            len + 1
+        },
+        128..=16383 => {
+            check_remaining(buf, len + 2)?;
+            len + 2
+        },
+        16384..=2097151 => {
+            check_remaining(buf, len + 3)?;
+            len + 3
+        },
+        2097152..=268435455 => {
+            check_remaining(buf, len + 4)?;
+            len + 4
+        },
         _ => return Err(Error::InvalidLength),
-    }
+    };
     let mut done = false;
     let mut x = len;
     while !done {
@@ -132,7 +149,7 @@ pub(crate) fn write_length(len: usize, buf: &mut impl BufMut) -> Result<(), Erro
         buf.put_u8(byte);
         done = x <= 0;
     }
-    Ok(())
+    Ok(write_len)
 }
 
 pub(crate) fn write_bytes(bytes: &[u8], buf: &mut impl BufMut) -> Result<(), Error> {
