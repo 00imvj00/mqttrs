@@ -75,7 +75,7 @@ impl Subscribe {
         Ok(Subscribe { pid, topics })
     }
 
-    pub(crate) fn to_buffer(&self, buf: &mut impl BufMut) -> Result<(), Error> {
+    pub(crate) fn to_buffer(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         let header: u8 = 0b10000010;
         check_remaining(buf, 1)?;
         buf.put_u8(header);
@@ -85,7 +85,7 @@ impl Subscribe {
         for topic in &self.topics {
             length += topic.topic_path.len() + 2 + 1;
         }
-        write_length(length, buf)?;
+        let write_len = write_length(length, buf)? + 1;
 
         // Pid
         self.pid.to_buffer(buf)?;
@@ -96,7 +96,7 @@ impl Subscribe {
             buf.put_u8(topic.qos.to_u8());
         }
 
-        Ok(())
+        Ok(write_len)
     }
 }
 
@@ -111,7 +111,7 @@ impl Unsubscribe {
         Ok(Unsubscribe { pid, topics })
     }
 
-    pub(crate) fn to_buffer(&self, buf: &mut impl BufMut) -> Result<(), Error> {
+    pub(crate) fn to_buffer(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         let header: u8 = 0b10100010;
         let mut length = 2;
         for topic in &self.topics {
@@ -120,12 +120,12 @@ impl Unsubscribe {
         check_remaining(buf, 1)?;
         buf.put_u8(header);
 
-        write_length(length, buf)?;
+        let write_len = write_length(length, buf)? + 1;
         self.pid.to_buffer(buf)?;
         for topic in &self.topics {
             write_string(topic.as_ref(), buf)?;
         }
-        Ok(())
+        Ok(write_len)
     }
 }
 
@@ -144,17 +144,17 @@ impl Suback {
         }
         Ok(Suback { return_codes, pid })
     }
-    pub(crate) fn to_buffer(&self, buf: &mut impl BufMut) -> Result<(), Error> {
+    pub(crate) fn to_buffer(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         let header: u8 = 0b10010000;
         let length = 2 + self.return_codes.len();
         check_remaining(buf, 1)?;
         buf.put_u8(header);
 
-        write_length(length, buf)?;
+        let write_len = write_length(length, buf)? + 1;
         self.pid.to_buffer(buf)?;
         for rc in &self.return_codes {
             buf.put_u8(rc.to_u8());
         }
-        Ok(())
+        Ok(write_len)
     }
 }

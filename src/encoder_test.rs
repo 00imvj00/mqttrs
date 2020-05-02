@@ -7,7 +7,8 @@ use alloc::vec;
 macro_rules! assert_decode {
     ($res:pat, $pkt:expr) => {
         let mut buf = BytesMut::with_capacity(1024);
-        encode($pkt, &mut buf).unwrap();
+        let written = encode($pkt, &mut buf).unwrap();
+        assert_eq!(written, buf.len());
         match decode(&mut buf) {
             Ok(Some($res)) => (),
             err => assert!(
