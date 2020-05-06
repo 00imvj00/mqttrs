@@ -15,13 +15,13 @@ pub struct Publish {
 }
 
 impl Publish {
-    pub(crate) fn from_buffer(header: &Header, buf: &mut impl Buf) -> Result<Self, Error> {
-        let topic_name = read_string(buf)?;
+    pub(crate) fn from_buffer(header: &Header, mut buf: impl Buf) -> Result<Self, Error> {
+        let topic_name = read_string(&mut buf)?;
 
         let qospid = match header.qos {
             QoS::AtMostOnce => QosPid::AtMostOnce,
-            QoS::AtLeastOnce => QosPid::AtLeastOnce(Pid::from_buffer(buf)?),
-            QoS::ExactlyOnce => QosPid::ExactlyOnce(Pid::from_buffer(buf)?),
+            QoS::AtLeastOnce => QosPid::AtLeastOnce(Pid::from_buffer(&mut buf)?),
+            QoS::ExactlyOnce => QosPid::ExactlyOnce(Pid::from_buffer(&mut buf)?),
         };
 
         Ok(Publish {
@@ -32,7 +32,7 @@ impl Publish {
             payload: buf.bytes().to_vec(),
         })
     }
-    pub(crate) fn to_buffer(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
+    pub(crate) fn to_buffer(&self, mut buf: impl BufMut) -> Result<usize, Error> {
         // Header
         let mut header: u8 = match self.qospid {
             QosPid::AtMostOnce => 0b00110000,
@@ -45,7 +45,7 @@ impl Publish {
         if self.retain {
             header |= 0b00000001 as u8;
         };
-        check_remaining(buf, 1)?;
+        check_remaining(&mut buf, 1)?;
         buf.put_u8(header);
 
         // Length: topic (2+len) + pid (0/2) + payload (len)
@@ -56,16 +56,16 @@ impl Publish {
             }
             + self.payload.len();
 
-        let write_len = write_length(length, buf)? + 1;
+        let write_len = write_length(length, &mut buf)? + 1;
 
         // Topic
-        write_string(self.topic_name.as_ref(), buf)?;
+        write_string(self.topic_name.as_ref(), &mut buf)?;
 
         // Pid
         match self.qospid {
             QosPid::AtMostOnce => (),
-            QosPid::AtLeastOnce(pid) => pid.to_buffer(buf)?,
-            QosPid::ExactlyOnce(pid) => pid.to_buffer(buf)?,
+            QosPid::AtLeastOnce(pid) => pid.to_buffer(&mut buf)?,
+            QosPid::ExactlyOnce(pid) => pid.to_buffer(&mut buf)?,
         }
 
         // Payload

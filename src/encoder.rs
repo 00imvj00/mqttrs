@@ -27,13 +27,13 @@ use bytes::BufMut;
 ///
 /// [Packet]: ../enum.Packet.html
 /// [BufMut]: https://docs.rs/bytes/0.5.3/bytes/trait.BufMut.html
-pub fn encode(packet: &Packet, buf: &mut impl BufMut) -> Result<usize, Error> {
+pub fn encode(packet: &Packet, mut buf: impl BufMut) -> Result<usize, Error> {
     match packet {
         Packet::Connect(connect) => connect.to_buffer(buf),
         Packet::Connack(connack) => connack.to_buffer(buf),
         Packet::Publish(publish) => publish.to_buffer(buf),
         Packet::Puback(pid) => {
-            check_remaining(buf, 4)?;
+            check_remaining(&mut buf, 4)?;
             let header: u8 = 0b01000000;
             let length: u8 = 2;
             buf.put_u8(header);
@@ -42,7 +42,7 @@ pub fn encode(packet: &Packet, buf: &mut impl BufMut) -> Result<usize, Error> {
             Ok(4)
         }
         Packet::Pubrec(pid) => {
-            check_remaining(buf, 4)?;
+            check_remaining(&mut buf, 4)?;
             let header: u8 = 0b01010000;
             let length: u8 = 2;
             buf.put_u8(header);
@@ -51,7 +51,7 @@ pub fn encode(packet: &Packet, buf: &mut impl BufMut) -> Result<usize, Error> {
             Ok(4)
         }
         Packet::Pubrel(pid) => {
-            check_remaining(buf, 4)?;
+            check_remaining(&mut buf, 4)?;
             let header: u8 = 0b01100010;
             let length: u8 = 2;
             buf.put_u8(header);
@@ -60,7 +60,7 @@ pub fn encode(packet: &Packet, buf: &mut impl BufMut) -> Result<usize, Error> {
             Ok(4)
         }
         Packet::Pubcomp(pid) => {
-            check_remaining(buf, 4)?;
+            check_remaining(&mut buf, 4)?;
             let header: u8 = 0b01110000;
             let length: u8 = 2;
             buf.put_u8(header);
@@ -72,7 +72,7 @@ pub fn encode(packet: &Packet, buf: &mut impl BufMut) -> Result<usize, Error> {
         Packet::Suback(suback) => suback.to_buffer(buf),
         Packet::Unsubscribe(unsub) => unsub.to_buffer(buf),
         Packet::Unsuback(pid) => {
-            check_remaining(buf, 4)?;
+            check_remaining(&mut buf, 4)?;
             let header: u8 = 0b10110000;
             let length: u8 = 2;
             buf.put_u8(header);
@@ -81,7 +81,7 @@ pub fn encode(packet: &Packet, buf: &mut impl BufMut) -> Result<usize, Error> {
             Ok(4)
         }
         Packet::Pingreq => {
-            check_remaining(buf, 2)?;
+            check_remaining(&mut buf, 2)?;
             let header: u8 = 0b11000000;
             let length: u8 = 0;
             buf.put_u8(header);
@@ -89,7 +89,7 @@ pub fn encode(packet: &Packet, buf: &mut impl BufMut) -> Result<usize, Error> {
             Ok(2)
         }
         Packet::Pingresp => {
-            check_remaining(buf, 2)?;
+            check_remaining(&mut buf, 2)?;
             let header: u8 = 0b11010000;
             let length: u8 = 0;
             buf.put_u8(header);
@@ -97,7 +97,7 @@ pub fn encode(packet: &Packet, buf: &mut impl BufMut) -> Result<usize, Error> {
             Ok(2)
         }
         Packet::Disconnect => {
-            check_remaining(buf, 2)?;
+            check_remaining(&mut buf, 2)?;
             let header: u8 = 0b11100000;
             let length: u8 = 0;
             buf.put_u8(header);
@@ -109,7 +109,7 @@ pub fn encode(packet: &Packet, buf: &mut impl BufMut) -> Result<usize, Error> {
 
 /// Check wether buffer has `len` bytes of write capacity left. Use this to return a clean
 /// Result::Err instead of panicking.
-pub(crate) fn check_remaining(buf: &impl BufMut, len: usize) -> Result<(), Error> {
+pub(crate) fn check_remaining(buf: impl BufMut, len: usize) -> Result<(), Error> {
     if buf.remaining_mut() < len {
         Err(Error::WriteZero)
     } else {
@@ -118,22 +118,22 @@ pub(crate) fn check_remaining(buf: &impl BufMut, len: usize) -> Result<(), Error
 }
 
 /// http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718023
-pub(crate) fn write_length(len: usize, buf: &mut impl BufMut) -> Result<usize, Error> {
+pub(crate) fn write_length(len: usize, mut buf: impl BufMut) -> Result<usize, Error> {
     let write_len = match len {
         0..=127 => {
-            check_remaining(buf, len + 1)?;
+            check_remaining(&mut buf, len + 1)?;
             len + 1
         },
         128..=16383 => {
-            check_remaining(buf, len + 2)?;
+            check_remaining(&mut buf, len + 2)?;
             len + 2
         },
         16384..=2097151 => {
-            check_remaining(buf, len + 3)?;
+            check_remaining(&mut buf, len + 3)?;
             len + 3
         },
         2097152..=268435455 => {
-            check_remaining(buf, len + 4)?;
+            check_remaining(&mut buf, len + 4)?;
             len + 4
         },
         _ => return Err(Error::InvalidLength),
@@ -152,12 +152,12 @@ pub(crate) fn write_length(len: usize, buf: &mut impl BufMut) -> Result<usize, E
     Ok(write_len)
 }
 
-pub(crate) fn write_bytes(bytes: &[u8], buf: &mut impl BufMut) -> Result<(), Error> {
+pub(crate) fn write_bytes(bytes: &[u8], mut buf: impl BufMut) -> Result<(), Error> {
     buf.put_u16(bytes.len() as u16);
     buf.put_slice(bytes);
     Ok(())
 }
 
-pub(crate) fn write_string(string: &str, buf: &mut impl BufMut) -> Result<(), Error> {
+pub(crate) fn write_string(string: &str, buf: impl BufMut) -> Result<(), Error> {
     write_bytes(string.as_bytes(), buf)
 }

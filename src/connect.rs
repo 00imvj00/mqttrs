@@ -28,7 +28,7 @@ impl Protocol {
             _ => Err(Error::InvalidProtocol(name.into(), level)),
         }
     }
-    pub(crate) fn to_buffer(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
+    pub(crate) fn to_buffer(&self, mut buf: impl BufMut) -> Result<usize, Error> {
         match self {
             Protocol::MQTT311 => {
                 let slice = &[0u8, 4, 'M' as u8, 'Q' as u8, 'T' as u8, 'T' as u8, 4];
@@ -123,19 +123,19 @@ pub struct Connack {
 }
 
 impl Connect {
-    pub(crate) fn from_buffer(buf: &mut impl Buf) -> Result<Self, Error> {
-        let protocol_name = read_string(buf)?;
+    pub(crate) fn from_buffer(mut buf: impl Buf) -> Result<Self, Error> {
+        let protocol_name = read_string(&mut buf)?;
         let protocol_level = buf.get_u8();
         let protocol = Protocol::new(&protocol_name, protocol_level).unwrap();
 
         let connect_flags = buf.get_u8();
         let keep_alive = buf.get_u16();
 
-        let client_id = read_string(buf)?;
+        let client_id = read_string(&mut buf)?;
 
         let last_will = if connect_flags & 0b100 != 0 {
-            let will_topic = read_string(buf)?;
-            let will_message = read_bytes(buf)?;
+            let will_topic = read_string(&mut buf)?;
+            let will_message = read_bytes(&mut buf)?;
             let will_qod = QoS::from_u8((connect_flags & 0b11000) >> 3).unwrap();
             Some(LastWill {
                 topic: will_topic,
@@ -148,13 +148,13 @@ impl Connect {
         };
 
         let username = if connect_flags & 0b10000000 != 0 {
-            Some(read_string(buf)?)
+            Some(read_string(&mut buf)?)
         } else {
             None
         };
 
         let password = if connect_flags & 0b01000000 != 0 {
-            Some(read_bytes(buf)?)
+            Some(read_bytes(&mut buf)?)
         } else {
             None
         };
@@ -171,7 +171,7 @@ impl Connect {
             clean_session,
         })
     }
-    pub(crate) fn to_buffer(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
+    pub(crate) fn to_buffer(&self, mut buf: impl BufMut) -> Result<usize, Error> {
         let header: u8 = 0b00010000;
         let mut length: usize = 6 + 1 + 1; // NOTE: protocol_name(6) + protocol_level(1) + flags(1);
         let mut connect_flags: u8 = 0b00000000;
@@ -200,26 +200,26 @@ impl Connect {
             length += last_will.topic.len();
             length += 4;
         };
-        check_remaining(buf, length + 1)?;
+        check_remaining(&mut buf, length + 1)?;
 
         // NOTE: putting data into buffer.
         buf.put_u8(header);
-        let write_len = write_length(length, buf)? + 1;
-        self.protocol.to_buffer(buf)?;
+        let write_len = write_length(length, &mut buf)? + 1;
+        self.protocol.to_buffer(&mut buf)?;
         buf.put_u8(connect_flags);
         buf.put_u16(self.keep_alive);
-        write_string(self.client_id.as_ref(), buf)?;
+        write_string(self.client_id.as_ref(), &mut buf)?;
 
         if let Some(last_will) = &self.last_will {
-            write_string(last_will.topic.as_ref(), buf)?;
-            write_bytes(&last_will.message, buf)?;
+            write_string(last_will.topic.as_ref(), &mut buf)?;
+            write_bytes(&last_will.message, &mut buf)?;
         };
 
         if let Some(username) = &self.username {
-            write_string(username.as_ref(), buf)?;
+            write_string(username.as_ref(), &mut buf)?;
         };
         if let Some(password) = &self.password {
-            write_bytes(password, buf)?;
+            write_bytes(password, &mut buf)?;
         };
         // NOTE: END
         Ok(write_len)
@@ -227,7 +227,7 @@ impl Connect {
 }
 
 impl Connack {
-    pub(crate) fn from_buffer(buf: &mut impl Buf) -> Result<Self, Error> {
+    pub(crate) fn from_buffer(mut buf: impl Buf) -> Result<Self, Error> {
         let flags = buf.get_u8();
         let return_code = buf.get_u8();
         Ok(Connack {
@@ -235,8 +235,8 @@ impl Connack {
             code: ConnectReturnCode::from_u8(return_code)?,
         })
     }
-    pub(crate) fn to_buffer(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
-        check_remaining(buf, 4)?;
+    pub(crate) fn to_buffer(&self, mut buf: impl BufMut) -> Result<usize, Error> {
+        check_remaining(&mut buf, 4)?;
         let header: u8 = 0b00100000;
         let length: u8 = 2;
         let mut flags: u8 = 0b00000000;

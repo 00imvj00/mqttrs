@@ -117,10 +117,10 @@ impl Pid {
     pub fn get(self) -> u16 {
         self.0.get()
     }
-    pub(crate) fn from_buffer(buf: &mut impl Buf) -> Result<Self, Error> {
+    pub(crate) fn from_buffer(mut buf: impl Buf) -> Result<Self, Error> {
         Self::try_from(buf.get_u16())
     }
-    pub(crate) fn to_buffer(self, buf: &mut impl BufMut) -> Result<(), Error> {
+    pub(crate) fn to_buffer(self, mut buf: impl BufMut) -> Result<(), Error> {
         Ok(buf.put_u16(self.get()))
     }
 }

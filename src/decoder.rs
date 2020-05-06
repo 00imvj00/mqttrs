@@ -28,10 +28,11 @@ use bytes::Buf;
 ///
 /// [Packet]: ../enum.Packet.html
 /// [BytesMut]: https://docs.rs/bytes/0.5.3/bytes/struct.BytesMut.html
-pub fn decode(buf: &mut impl Buf) -> Result<Option<Packet>, Error> {
-    if let Some((header, remaining_len)) = read_header(buf)? {
+pub fn decode(mut buf: impl Buf) -> Result<Option<Packet>, Error> {
+    if let Some((header, remaining_len)) = read_header(&mut buf)? {
         // Advance the buffer position to the next packet, and parse the current packet
-        let r = read_packet(header, &mut &buf.bytes()[..remaining_len]);
+        let b = &buf.bytes()[..remaining_len];
+        let r = read_packet(header, &mut b.as_ref());
         buf.advance(remaining_len);
         Ok(Some(r?))
     } else {
@@ -40,7 +41,7 @@ pub fn decode(buf: &mut impl Buf) -> Result<Option<Packet>, Error> {
     }
 }
 
-fn read_packet(header: Header, buf: &mut impl Buf) -> Result<Packet, Error> {
+fn read_packet(header: Header, buf: impl Buf) -> Result<Packet, Error> {
     Ok(match header.typ {
         PacketType::Pingreq => Packet::Pingreq,
         PacketType::Pingresp => Packet::Pingresp,
@@ -61,7 +62,7 @@ fn read_packet(header: Header, buf: &mut impl Buf) -> Result<Packet, Error> {
 
 /// Read the parsed header and remaining_len from the buffer. Only return Some() and advance the
 /// buffer position if there is enough data in the buffer to read the full packet.
-fn read_header(buf: &mut impl Buf) -> Result<Option<(Header, usize)>, Error> {
+fn read_header(mut buf: impl Buf) -> Result<Option<(Header, usize)>, Error> {
     let mut len: usize = 0;
     for pos in 0..=3 {
         if buf.remaining() > pos + 1 {
@@ -125,11 +126,11 @@ impl Header {
     }
 }
 
-pub(crate) fn read_string(buf: &mut impl Buf) -> Result<String, Error> {
+pub(crate) fn read_string(buf: impl Buf) -> Result<String, Error> {
     String::from_utf8(read_bytes(buf)?).map_err(|e| Error::InvalidString(e.utf8_error()))
 }
 
-pub(crate) fn read_bytes(buf: &mut impl Buf) -> Result<Vec<u8>, Error> {
+pub(crate) fn read_bytes(mut buf: impl Buf) -> Result<Vec<u8>, Error> {
     let len = buf.get_u16() as usize;
     if len > buf.remaining() {
         Err(Error::InvalidLength)
@@ -250,5 +251,18 @@ mod test {
             0x00, 0x03, 'm' as u8, 'q' as u8, // password with invalid length
         ]);
         assert_eq!(Err(Error::InvalidLength), decode(&mut data));
+
+        let mut slice = &[
+            0b00010000, 20, // Connect packet, remaining_len=20
+            0x00, 0x04, 'M' as u8, 'Q' as u8, 'T' as u8, 'T' as u8, 0x04,
+            0b01000000, // +password
+            0x00, 0x0a, // keepalive 10 sec
+            0x00, 0x04, 't' as u8, 'e' as u8, 's' as u8, 't' as u8, // client_id
+            0x00, 0x03, 'm' as u8, 'q' as u8, // password with invalid length
+        ][..];
+
+        assert_eq!(Err(Error::InvalidLength), decode(&mut slice));
+        assert_eq!(slice[..], []);
+
     }
 }

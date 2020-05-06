@@ -63,11 +63,11 @@ pub struct Unsubscribe {
 }
 
 impl Subscribe {
-    pub(crate) fn from_buffer(buf: &mut impl Buf) -> Result<Self, Error> {
-        let pid = Pid::from_buffer(buf)?;
+    pub(crate) fn from_buffer(mut buf: impl Buf) -> Result<Self, Error> {
+        let pid = Pid::from_buffer(&mut buf)?;
         let mut topics: Vec<SubscribeTopic> = Vec::new();
         while buf.remaining() != 0 {
-            let topic_path = read_string(buf)?;
+            let topic_path = read_string(&mut buf)?;
             let qos = QoS::from_u8(buf.get_u8())?;
             let topic = SubscribeTopic { topic_path, qos };
             topics.push(topic);
@@ -75,9 +75,9 @@ impl Subscribe {
         Ok(Subscribe { pid, topics })
     }
 
-    pub(crate) fn to_buffer(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
+    pub(crate) fn to_buffer(&self, mut buf: impl BufMut) -> Result<usize, Error> {
         let header: u8 = 0b10000010;
-        check_remaining(buf, 1)?;
+        check_remaining(&mut buf, 1)?;
         buf.put_u8(header);
 
         // Length: pid(2) + topic.for_each(2+len + qos(1))
@@ -85,14 +85,14 @@ impl Subscribe {
         for topic in &self.topics {
             length += topic.topic_path.len() + 2 + 1;
         }
-        let write_len = write_length(length, buf)? + 1;
+        let write_len = write_length(length, &mut buf)? + 1;
 
         // Pid
-        self.pid.to_buffer(buf)?;
+        self.pid.to_buffer(&mut buf)?;
 
         // Topics
         for topic in &self.topics {
-            write_string(topic.topic_path.as_ref(), buf)?;
+            write_string(topic.topic_path.as_ref(), &mut buf)?;
             buf.put_u8(topic.qos.to_u8());
         }
 
@@ -101,37 +101,37 @@ impl Subscribe {
 }
 
 impl Unsubscribe {
-    pub(crate) fn from_buffer(buf: &mut impl Buf) -> Result<Self, Error> {
-        let pid = Pid::from_buffer(buf)?;
+    pub(crate) fn from_buffer(mut buf: impl Buf) -> Result<Self, Error> {
+        let pid = Pid::from_buffer(&mut buf)?;
         let mut topics: Vec<String> = Vec::new();
         while buf.remaining() != 0 {
-            let topic_path = read_string(buf)?;
+            let topic_path = read_string(&mut buf)?;
             topics.push(topic_path);
         }
         Ok(Unsubscribe { pid, topics })
     }
 
-    pub(crate) fn to_buffer(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
+    pub(crate) fn to_buffer(&self, mut buf: impl BufMut) -> Result<usize, Error> {
         let header: u8 = 0b10100010;
         let mut length = 2;
         for topic in &self.topics {
             length += 2 + topic.len();
         }
-        check_remaining(buf, 1)?;
+        check_remaining(&mut buf, 1)?;
         buf.put_u8(header);
 
-        let write_len = write_length(length, buf)? + 1;
-        self.pid.to_buffer(buf)?;
+        let write_len = write_length(length, &mut buf)? + 1;
+        self.pid.to_buffer(&mut buf)?;
         for topic in &self.topics {
-            write_string(topic.as_ref(), buf)?;
+            write_string(topic.as_ref(), &mut buf)?;
         }
         Ok(write_len)
     }
 }
 
 impl Suback {
-    pub(crate) fn from_buffer(buf: &mut impl Buf) -> Result<Self, Error> {
-        let pid = Pid::from_buffer(buf)?;
+    pub(crate) fn from_buffer(mut buf: impl Buf) -> Result<Self, Error> {
+        let pid = Pid::from_buffer(&mut buf)?;
         let mut return_codes: Vec<SubscribeReturnCodes> = Vec::new();
         while buf.remaining() != 0 {
             let code = buf.get_u8();
@@ -144,14 +144,14 @@ impl Suback {
         }
         Ok(Suback { return_codes, pid })
     }
-    pub(crate) fn to_buffer(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
+    pub(crate) fn to_buffer(&self, mut buf: impl BufMut) -> Result<usize, Error> {
         let header: u8 = 0b10010000;
         let length = 2 + self.return_codes.len();
-        check_remaining(buf, 1)?;
+        check_remaining(&mut buf, 1)?;
         buf.put_u8(header);
 
-        let write_len = write_length(length, buf)? + 1;
-        self.pid.to_buffer(buf)?;
+        let write_len = write_length(length, &mut buf)? + 1;
+        self.pid.to_buffer(&mut buf)?;
         for rc in &self.return_codes {
             buf.put_u8(rc.to_u8());
         }
