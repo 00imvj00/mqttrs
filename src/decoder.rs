@@ -31,9 +31,9 @@ use bytes::Buf;
 pub fn decode(mut buf: impl Buf) -> Result<Option<Packet>, Error> {
     if let Some((header, remaining_len)) = read_header(&mut buf)? {
         // Advance the buffer position to the next packet, and parse the current packet
-        let b = &buf.bytes()[..remaining_len];
-        let r = read_packet(header, &mut b.as_ref());
+        let r = read_packet(header, &mut &buf.bytes()[..remaining_len]);
         buf.advance(remaining_len);
+        // Make sure to advance the buffer, before checking the result of read_packet
         Ok(Some(r?))
     } else {
         // Don't have a full packet
