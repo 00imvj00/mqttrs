@@ -1,6 +1,6 @@
 use crate::{decoder::*, encoder::*, *};
 use alloc::{string::String, vec::Vec};
-use bytes::{BufMut, BytesMut};
+use bytes::{Buf, BufMut};
 
 /// Publish packet ([MQTT 3.3]).
 ///
@@ -15,7 +15,7 @@ pub struct Publish {
 }
 
 impl Publish {
-    pub(crate) fn from_buffer(header: &Header, buf: &mut BytesMut) -> Result<Self, Error> {
+    pub(crate) fn from_buffer(header: &Header, buf: &mut impl Buf) -> Result<Self, Error> {
         let topic_name = read_string(buf)?;
 
         let qospid = match header.qos {
@@ -29,7 +29,7 @@ impl Publish {
             qospid,
             retain: header.retain,
             topic_name,
-            payload: buf.to_vec(),
+            payload: buf.bytes().to_vec(),
         })
     }
     pub(crate) fn to_buffer(&self, buf: &mut impl BufMut) -> Result<usize, Error> {

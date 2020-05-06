@@ -1,5 +1,5 @@
 use crate::{decoder::*, encoder::*, *};
-use bytes::{Buf, BufMut, BytesMut};
+use bytes::{Buf, BufMut};
 #[cfg(feature = "derive")]
 use serde::{Deserialize, Serialize};
 use alloc::{string::String, vec::Vec};
@@ -63,7 +63,7 @@ pub struct Unsubscribe {
 }
 
 impl Subscribe {
-    pub(crate) fn from_buffer(buf: &mut BytesMut) -> Result<Self, Error> {
+    pub(crate) fn from_buffer(buf: &mut impl Buf) -> Result<Self, Error> {
         let pid = Pid::from_buffer(buf)?;
         let mut topics: Vec<SubscribeTopic> = Vec::new();
         while buf.remaining() != 0 {
@@ -101,7 +101,7 @@ impl Subscribe {
 }
 
 impl Unsubscribe {
-    pub(crate) fn from_buffer(buf: &mut BytesMut) -> Result<Self, Error> {
+    pub(crate) fn from_buffer(buf: &mut impl Buf) -> Result<Self, Error> {
         let pid = Pid::from_buffer(buf)?;
         let mut topics: Vec<String> = Vec::new();
         while buf.remaining() != 0 {

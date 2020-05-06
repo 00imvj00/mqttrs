@@ -1,6 +1,6 @@
 use crate::*;
 use alloc::{string::String, vec::Vec};
-use bytes::{Buf, BytesMut};
+use bytes::Buf;
 
 /// Decode bytes from a [BytesMut] buffer as a [Packet] enum.
 ///
@@ -28,17 +28,19 @@ use bytes::{Buf, BytesMut};
 ///
 /// [Packet]: ../enum.Packet.html
 /// [BytesMut]: https://docs.rs/bytes/0.5.3/bytes/struct.BytesMut.html
-pub fn decode(buf: &mut BytesMut) -> Result<Option<Packet>, Error> {
+pub fn decode(buf: &mut impl Buf) -> Result<Option<Packet>, Error> {
     if let Some((header, remaining_len)) = read_header(buf)? {
         // Advance the buffer position to the next packet, and parse the current packet
-        Ok(Some(read_packet(header, &mut buf.split_to(remaining_len))?))
+        let r = read_packet(header, &mut &buf.bytes()[..remaining_len]);
+        buf.advance(remaining_len);
+        Ok(Some(r?))
     } else {
         // Don't have a full packet
         Ok(None)
     }
 }
 
-fn read_packet(header: Header, buf: &mut BytesMut) -> Result<Packet, Error> {
+fn read_packet(header: Header, buf: &mut impl Buf) -> Result<Packet, Error> {
     Ok(match header.typ {
         PacketType::Pingreq => Packet::Pingreq,
         PacketType::Pingresp => Packet::Pingresp,
@@ -59,10 +61,11 @@ fn read_packet(header: Header, buf: &mut BytesMut) -> Result<Packet, Error> {
 
 /// Read the parsed header and remaining_len from the buffer. Only return Some() and advance the
 /// buffer position if there is enough data in the buffer to read the full packet.
-fn read_header(buf: &mut BytesMut) -> Result<Option<(Header, usize)>, Error> {
+fn read_header(buf: &mut impl Buf) -> Result<Option<(Header, usize)>, Error> {
     let mut len: usize = 0;
     for pos in 0..=3 {
-        if let Some(&byte) = buf.get(pos + 1) {
+        if buf.remaining() > pos + 1 {
+            let byte = buf.bytes()[pos + 1];
             len += (byte as usize & 0x7F) << (pos * 7);
             if (byte & 0x80) == 0 {
                 // Continuation bit == 0, length is parsed
@@ -122,16 +125,18 @@ impl Header {
     }
 }
 
-pub(crate) fn read_string(buf: &mut BytesMut) -> Result<String, Error> {
+pub(crate) fn read_string(buf: &mut impl Buf) -> Result<String, Error> {
     String::from_utf8(read_bytes(buf)?).map_err(|e| Error::InvalidString(e.utf8_error()))
 }
 
-pub(crate) fn read_bytes(buf: &mut BytesMut) -> Result<Vec<u8>, Error> {
+pub(crate) fn read_bytes(buf: &mut impl Buf) -> Result<Vec<u8>, Error> {
     let len = buf.get_u16() as usize;
     if len > buf.remaining() {
         Err(Error::InvalidLength)
     } else {
-        Ok(buf.split_to(len).to_vec())
+        let r = buf.bytes()[..len].to_vec();
+        buf.advance(len);
+        Ok(r)
     }
 }
 
@@ -139,6 +144,7 @@ pub(crate) fn read_bytes(buf: &mut BytesMut) -> Result<Vec<u8>, Error> {
 mod test {
     use crate::decoder::*;
     use alloc::vec;
+    use bytes::BytesMut;
 
     macro_rules! header {
         ($t:ident, $d:expr, $q:ident, $r:expr) => {

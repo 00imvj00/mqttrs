@@ -1,6 +1,6 @@
 use crate::{decoder::*, encoder::*, *};
 use alloc::{string::String, vec::Vec};
-use bytes::{Buf, BufMut, BytesMut};
+use bytes::{Buf, BufMut};
 
 /// Protocol version.
 ///
@@ -123,7 +123,7 @@ pub struct Connack {
 }
 
 impl Connect {
-    pub(crate) fn from_buffer(buf: &mut BytesMut) -> Result<Self, Error> {
+    pub(crate) fn from_buffer(buf: &mut impl Buf) -> Result<Self, Error> {
         let protocol_name = read_string(buf)?;
         let protocol_level = buf.get_u8();
         let protocol = Protocol::new(&protocol_name, protocol_level).unwrap();
