@@ -19,7 +19,7 @@ default = ["std"]
 
 # Implements serde::{Serialize,Deserialize} on mqttrs::Pid.
 derive = ["serde"]
-alloc = ["serde/alloc"]
+alloc = []
 std = ["bytes/std", "serde/std", "alloc"]
 
 [dependencies]
