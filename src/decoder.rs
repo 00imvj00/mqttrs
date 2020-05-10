@@ -198,7 +198,7 @@ mod test {
                 None if ((n & 0b110) == 0b110) && (n >> 4 == 3) => Err(Error::InvalidQos(3)),
                 None => Err(Error::InvalidHeader),
             };
-            let mut buf = bm(&[n, 0]);
+            let mut buf: &[u8] = &[n, 0];
             assert_eq!(res, read_header(&mut buf), "{:08b}", n);
         }
     }
@@ -220,18 +220,18 @@ mod test {
             (Err(Error::InvalidHeader), vec![1 << 4, 0x80, 0x80, 0x80, 0x80], 10),
         ] {
             bytes.resize(buflen, 0);
-            let mut buf = bm(bytes.as_slice());
-            assert_eq!(res, read_header(&mut buf));
+            let mut slice_buf = bytes.as_slice();
+            assert_eq!(res, read_header(&mut slice_buf));
         }
     }
 
     #[test]
     fn non_utf8_string() {
-        let mut data = bm(&[
+        let mut data: &[u8] = &[
             0b00110000, 10, // type=Publish, remaining_len=10
             0x00, 0x03, 'a' as u8, '/' as u8, 0xc0 as u8, // Topic with Invalid utf8
             'h' as u8, 'e' as u8, 'l' as u8, 'l' as u8, 'o' as u8, // payload
-        ]);
+        ];
         assert!(match decode(&mut data) {
             Err(Error::InvalidString(_)) => true,
             _ => false,
@@ -252,17 +252,17 @@ mod test {
         ]);
         assert_eq!(Err(Error::InvalidLength), decode(&mut data));
 
-        let mut slice = &[
+        let mut slice: &[u8] = &[
             0b00010000, 20, // Connect packet, remaining_len=20
             0x00, 0x04, 'M' as u8, 'Q' as u8, 'T' as u8, 'T' as u8, 0x04,
             0b01000000, // +password
             0x00, 0x0a, // keepalive 10 sec
             0x00, 0x04, 't' as u8, 'e' as u8, 's' as u8, 't' as u8, // client_id
             0x00, 0x03, 'm' as u8, 'q' as u8, // password with invalid length
-        ][..];
+        ];
 
         assert_eq!(Err(Error::InvalidLength), decode(&mut slice));
-        assert_eq!(slice[..], []);
+        assert_eq!(slice, []);
 
     }
 }
