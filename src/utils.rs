@@ -1,4 +1,6 @@
-use alloc::string::String;
+// use alloc::string::String;
+use heapless::{String, consts};
+
 use bytes::{Buf, BufMut};
 use core::{convert::TryFrom, fmt, num::NonZeroU16};
 
@@ -30,7 +32,7 @@ pub enum Error {
     /// Tried to decode a ConnectReturnCode > 5.
     InvalidConnectReturnCode(u8),
     /// Tried to decode an unknown protocol.
-    InvalidProtocol(String, u8),
+    InvalidProtocol(String<consts::U5>, u8),
     /// Tried to decode an invalid fixed header (packet type, flags, or remaining_length).
     InvalidHeader,
     /// Trying to encode/decode an invalid length.
@@ -45,7 +47,7 @@ pub enum Error {
     /// Note: Only available when std is available.
     /// You'll hopefully never see this.
     #[cfg(feature = "std")]
-    IoError(ErrorKind, String),
+    IoError(ErrorKind, String<consts::U1>),
 }
 
 #[cfg(feature = "std")]

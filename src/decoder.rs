@@ -1,6 +1,9 @@
 use crate::*;
-use alloc::{string::String, vec::Vec};
 use bytes::Buf;
+
+// use alloc::{string::String, vec::Vec};
+use heapless::{String, Vec, ArrayLength};
+
 
 /// Decode bytes from a [BytesMut] buffer as a [Packet] enum.
 ///
@@ -126,11 +129,11 @@ impl Header {
     }
 }
 
-pub(crate) fn read_string(buf: impl Buf) -> Result<String, Error> {
+pub(crate) fn read_string<L: ArrayLength<u8>>(buf: impl Buf) -> Result<String<L>, Error> {
     String::from_utf8(read_bytes(buf)?).map_err(|e| Error::InvalidString(e.utf8_error()))
 }
 
-pub(crate) fn read_bytes(mut buf: impl Buf) -> Result<Vec<u8>, Error> {
+pub(crate) fn read_bytes<L: ArrayLength<u8>>(mut buf: impl Buf) -> Result<Vec<u8, L>, Error> {
     let len = buf.get_u16() as usize;
     if len > buf.remaining() {
         Err(Error::InvalidLength)

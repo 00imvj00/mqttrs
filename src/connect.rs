@@ -1,5 +1,4 @@
 use crate::{decoder::*, encoder::*, *};
-use alloc::{string::String, vec::Vec};
 use bytes::{Buf, BufMut};
 
 /// Protocol version.
@@ -53,9 +52,9 @@ impl Protocol {
 /// [Connect]: struct.Connect.html
 /// [MQTT 3.1.3.3]: http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718031
 #[derive(Debug, Clone, PartialEq)]
-pub struct LastWill {
-    pub topic: String,
-    pub message: Vec<u8>,
+pub struct LastWill<'a> {
+    pub topic: &'a str,
+    pub message: &'a [u8],
     pub qos: QoS,
     pub retain: bool,
 }
@@ -103,14 +102,14 @@ impl ConnectReturnCode {
 ///
 /// [MQTT 3.1]: http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718028
 #[derive(Debug, Clone, PartialEq)]
-pub struct Connect {
+pub struct Connect<'a, 'b, 'c, 'd> {
     pub protocol: Protocol,
     pub keep_alive: u16,
-    pub client_id: String,
+    pub client_id: &'a str,
     pub clean_session: bool,
-    pub last_will: Option<LastWill>,
-    pub username: Option<String>,
-    pub password: Option<Vec<u8>>,
+    pub last_will: Option<LastWill<'b>>,
+    pub username: Option<&'c str>,
+    pub password: Option<&'d [u8]>,
 }
 
 /// Connack packet ([MQTT 3.2]).
@@ -122,7 +121,7 @@ pub struct Connack {
     pub code: ConnectReturnCode,
 }
 
-impl Connect {
+impl<'a, 'b, 'c, 'd> Connect<'a, 'b, 'c, 'd> {
     pub(crate) fn from_buffer(mut buf: impl Buf) -> Result<Self, Error> {
         let protocol_name = read_string(&mut buf)?;
         let protocol_level = buf.get_u8();
