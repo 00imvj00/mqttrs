@@ -1,6 +1,5 @@
 use crate::{decoder::*, encoder::*, *};
-use alloc::{string::String, vec::Vec};
-use bytes::{Buf, BufMut};
+use bytes::BufMut;
 
 /// Protocol version.
 ///
@@ -25,8 +24,15 @@ impl Protocol {
         match (name, level) {
             ("MQIsdp", 3) => Ok(Protocol::MQIsdp),
             ("MQTT", 4) => Ok(Protocol::MQTT311),
-            _ => Err(Error::InvalidProtocol(name.into(), level)),
+            _ => Err(Error::InvalidProtocol(level)),
         }
+    }
+    pub(crate) fn from_buffer<'a>(buf: &'a [u8], offset: &mut usize) -> Result<Self, Error> {
+        let protocol_name = read_str(buf, offset)?;
+        let protocol_level = buf[*offset];
+        *offset += 1;
+
+        Protocol::new(protocol_name, protocol_level)
     }
     pub(crate) fn to_buffer(&self, mut buf: impl BufMut) -> Result<usize, Error> {
         match self {
@@ -53,9 +59,9 @@ impl Protocol {
 /// [Connect]: struct.Connect.html
 /// [MQTT 3.1.3.3]: http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718031
 #[derive(Debug, Clone, PartialEq)]
-pub struct LastWill {
-    pub topic: String,
-    pub message: Vec<u8>,
+pub struct LastWill<'a> {
+    pub topic: &'a str,
+    pub message: &'a [u8],
     pub qos: QoS,
     pub retain: bool,
 }
@@ -103,14 +109,14 @@ impl ConnectReturnCode {
 ///
 /// [MQTT 3.1]: http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718028
 #[derive(Debug, Clone, PartialEq)]
-pub struct Connect {
+pub struct Connect<'a> {
     pub protocol: Protocol,
     pub keep_alive: u16,
-    pub client_id: String,
+    pub client_id: &'a str,
     pub clean_session: bool,
-    pub last_will: Option<LastWill>,
-    pub username: Option<String>,
-    pub password: Option<Vec<u8>>,
+    pub last_will: Option<LastWill<'a>>,
+    pub username: Option<&'a str>,
+    pub password: Option<&'a [u8]>,
 }
 
 /// Connack packet ([MQTT 3.2]).
@@ -122,21 +128,20 @@ pub struct Connack {
     pub code: ConnectReturnCode,
 }
 
-impl Connect {
-    pub(crate) fn from_buffer(mut buf: impl Buf) -> Result<Self, Error> {
-        let protocol_name = read_string(&mut buf)?;
-        let protocol_level = buf.get_u8();
-        let protocol = Protocol::new(&protocol_name, protocol_level).unwrap();
+impl<'a> Connect<'a> {
+    pub(crate) fn from_buffer(buf: &'a [u8], offset: &mut usize) -> Result<Self, Error> {
+        let protocol = Protocol::from_buffer(buf, offset)?;
 
-        let connect_flags = buf.get_u8();
-        let keep_alive = buf.get_u16();
+        let connect_flags = buf[*offset];
+        let keep_alive = ((buf[*offset + 1] as u16) << 8) | buf[*offset + 2] as u16;
+        *offset += 3;
 
-        let client_id = read_string(&mut buf)?;
+        let client_id = read_str(buf, offset)?;
 
         let last_will = if connect_flags & 0b100 != 0 {
-            let will_topic = read_string(&mut buf)?;
-            let will_message = read_bytes(&mut buf)?;
-            let will_qod = QoS::from_u8((connect_flags & 0b11000) >> 3).unwrap();
+            let will_topic = read_str(buf, offset)?;
+            let will_message = read_bytes(buf, offset)?;
+            let will_qod = QoS::from_u8((connect_flags & 0b11000) >> 3)?;
             Some(LastWill {
                 topic: will_topic,
                 message: will_message,
@@ -148,13 +153,13 @@ impl Connect {
         };
 
         let username = if connect_flags & 0b10000000 != 0 {
-            Some(read_string(&mut buf)?)
+            Some(read_str(buf, offset)?)
         } else {
             None
         };
 
         let password = if connect_flags & 0b01000000 != 0 {
-            Some(read_bytes(&mut buf)?)
+            Some(read_bytes(buf, offset)?)
         } else {
             None
         };
@@ -171,6 +176,7 @@ impl Connect {
             clean_session,
         })
     }
+
     pub(crate) fn to_buffer(&self, mut buf: impl BufMut) -> Result<usize, Error> {
         let header: u8 = 0b00010000;
         let mut length: usize = 6 + 1 + 1; // NOTE: protocol_name(6) + protocol_level(1) + flags(1);
@@ -180,12 +186,12 @@ impl Connect {
         };
         length += 2 + self.client_id.len();
         length += 2; // keep alive
-        if let Some(username) = &self.username {
+        if let Some(username) = self.username {
             connect_flags |= 0b10000000;
             length += username.len();
             length += 2;
         };
-        if let Some(password) = &self.password {
+        if let Some(password) = self.password {
             connect_flags |= 0b01000000;
             length += password.len();
             length += 2;
@@ -208,17 +214,17 @@ impl Connect {
         self.protocol.to_buffer(&mut buf)?;
         buf.put_u8(connect_flags);
         buf.put_u16(self.keep_alive);
-        write_string(self.client_id.as_ref(), &mut buf)?;
+        write_string(self.client_id, &mut buf)?;
 
         if let Some(last_will) = &self.last_will {
-            write_string(last_will.topic.as_ref(), &mut buf)?;
+            write_string(last_will.topic, &mut buf)?;
             write_bytes(&last_will.message, &mut buf)?;
         };
 
-        if let Some(username) = &self.username {
-            write_string(username.as_ref(), &mut buf)?;
+        if let Some(username) = self.username {
+            write_string(username, &mut buf)?;
         };
-        if let Some(password) = &self.password {
+        if let Some(password) = self.password {
             write_bytes(password, &mut buf)?;
         };
         // NOTE: END
@@ -227,9 +233,10 @@ impl Connect {
 }
 
 impl Connack {
-    pub(crate) fn from_buffer(mut buf: impl Buf) -> Result<Self, Error> {
-        let flags = buf.get_u8();
-        let return_code = buf.get_u8();
+    pub(crate) fn from_buffer<'a>(buf: &'a [u8], offset: &mut usize) -> Result<Self, Error> {
+        let flags = buf[*offset];
+        let return_code = buf[*offset + 1];
+        *offset += 2;
         Ok(Connack {
             session_present: (flags & 0b1 == 1),
             code: ConnectReturnCode::from_u8(return_code)?,

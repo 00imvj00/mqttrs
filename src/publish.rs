@@ -1,27 +1,32 @@
 use crate::{decoder::*, encoder::*, *};
-use alloc::{string::String, vec::Vec};
-use bytes::{Buf, BufMut};
+use bytes::BufMut;
 
 /// Publish packet ([MQTT 3.3]).
 ///
 /// [MQTT 3.3]: http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718037
 #[derive(Debug, Clone, PartialEq)]
-pub struct Publish {
+pub struct Publish<'a> {
     pub dup: bool,
     pub qospid: QosPid,
     pub retain: bool,
-    pub topic_name: String,
-    pub payload: Vec<u8>,
+    pub topic_name: &'a str,
+    pub payload: &'a [u8],
 }
 
-impl Publish {
-    pub(crate) fn from_buffer(header: &Header, mut buf: impl Buf) -> Result<Self, Error> {
-        let topic_name = read_string(&mut buf)?;
+impl<'a> Publish<'a> {
+    pub(crate) fn from_buffer(
+        header: &Header,
+        remaining_len: usize,
+        buf: &'a [u8],
+        offset: &mut usize,
+    ) -> Result<Self, Error> {
+        let payload_end = *offset + remaining_len;
+        let topic_name = read_str(buf, offset)?;
 
         let qospid = match header.qos {
             QoS::AtMostOnce => QosPid::AtMostOnce,
-            QoS::AtLeastOnce => QosPid::AtLeastOnce(Pid::from_buffer(&mut buf)?),
-            QoS::ExactlyOnce => QosPid::ExactlyOnce(Pid::from_buffer(&mut buf)?),
+            QoS::AtLeastOnce => QosPid::AtLeastOnce(Pid::from_buffer(buf, offset)?),
+            QoS::ExactlyOnce => QosPid::ExactlyOnce(Pid::from_buffer(buf, offset)?),
         };
 
         Ok(Publish {
@@ -29,7 +34,7 @@ impl Publish {
             qospid,
             retain: header.retain,
             topic_name,
-            payload: buf.bytes().to_vec(),
+            payload: &buf[*offset..payload_end],
         })
     }
     pub(crate) fn to_buffer(&self, mut buf: impl BufMut) -> Result<usize, Error> {
@@ -59,7 +64,7 @@ impl Publish {
         let write_len = write_length(length, &mut buf)? + 1;
 
         // Topic
-        write_string(self.topic_name.as_ref(), &mut buf)?;
+        write_string(self.topic_name, &mut buf)?;
 
         // Pid
         match self.qospid {
@@ -69,7 +74,7 @@ impl Publish {
         }
 
         // Payload
-        buf.put_slice(self.payload.as_slice());
+        buf.put_slice(self.payload);
 
         Ok(write_len)
     }

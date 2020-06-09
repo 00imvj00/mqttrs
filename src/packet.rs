@@ -25,13 +25,13 @@ use crate::*;
 /// [`encode()`]: fn.encode.html
 /// [`decode()`]: fn.decode.html
 #[derive(Debug, Clone, PartialEq)]
-pub enum Packet {
+pub enum Packet<'a> {
     /// [MQTT 3.1](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718028)
-    Connect(Connect),
+    Connect(Connect<'a>),
     /// [MQTT 3.2](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718033)
     Connack(Connack),
     /// [MQTT 3.3](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718037)
-    Publish(Publish),
+    Publish(Publish<'a>),
     /// [MQTT 3.4](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718043)
     Puback(Pid),
     /// [MQTT 3.5](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718048)
@@ -41,11 +41,11 @@ pub enum Packet {
     /// [MQTT 3.7](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718058)
     Pubcomp(Pid),
     /// [MQTT 3.8](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718063)
-    Subscribe(Subscribe),
+    Subscribe(Subscribe<'a>),
     /// [MQTT 3.9](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718068)
-    Suback(Suback),
+    Suback(Suback<'a>),
     /// [MQTT 3.10](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718072)
-    Unsubscribe(Unsubscribe),
+    Unsubscribe(Unsubscribe<'a>),
     /// [MQTT 3.11](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718077)
     Unsuback(Pid),
     /// [MQTT 3.12](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718081)
@@ -55,7 +55,7 @@ pub enum Packet {
     /// [MQTT 3.14](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718090)
     Disconnect,
 }
-impl Packet {
+impl<'a> Packet<'a> {
     /// Return the packet type variant.
     ///
     /// This can be used for matching, categorising, debuging, etc. Most users will match directly
@@ -79,18 +79,25 @@ impl Packet {
         }
     }
 }
-macro_rules! packet_from {
+macro_rules! packet_from_borrowed {
     ($($t:ident),+) => {
         $(
-            impl From<$t> for Packet {
-                fn from(p: $t) -> Self {
+            impl<'a> From<$t<'a>> for Packet<'a> {
+                fn from(p: $t<'a>) -> Self {
                     Packet::$t(p)
                 }
             }
         )+
     }
 }
-packet_from!(Connect, Connack, Publish, Subscribe, Suback, Unsubscribe);
+
+impl<'a> From<Connack> for Packet<'a> {
+    fn from(p: Connack) -> Self {
+        Packet::Connack(p)
+    }
+}
+
+packet_from_borrowed!(Connect, Publish, Subscribe, Suback, Unsubscribe);
 
 /// Packet type variant, without the associated data.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]

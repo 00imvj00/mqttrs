@@ -123,19 +123,19 @@ pub(crate) fn write_length(len: usize, mut buf: impl BufMut) -> Result<usize, Er
         0..=127 => {
             check_remaining(&mut buf, len + 1)?;
             len + 1
-        },
+        }
         128..=16383 => {
             check_remaining(&mut buf, len + 2)?;
             len + 2
-        },
+        }
         16384..=2097151 => {
             check_remaining(&mut buf, len + 3)?;
             len + 3
-        },
+        }
         2097152..=268435455 => {
             check_remaining(&mut buf, len + 4)?;
             len + 4
-        },
+        }
         _ => return Err(Error::InvalidLength),
     };
     let mut done = false;

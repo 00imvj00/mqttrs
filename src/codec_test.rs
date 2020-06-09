@@ -2,8 +2,6 @@ use crate::*;
 use bytes::BytesMut;
 use proptest::{bool, collection::vec, num::*, prelude::*};
 use core::convert::TryFrom;
-use alloc::string::String;
-use alloc::format;
 
 // Proptest strategies to generate packet elements
 prop_compose! {
