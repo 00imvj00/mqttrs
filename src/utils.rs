@@ -6,8 +6,8 @@ use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "std")]
 use std::{
-    format,
     error::Error as ErrorTrait,
+    format,
     io::{Error as IoError, ErrorKind},
 };
 
@@ -265,8 +265,8 @@ impl QosPid {
 #[cfg(test)]
 mod test {
     use crate::Pid;
-    use std::vec;
     use core::convert::TryFrom;
+    use std::vec;
 
     #[test]
     fn pid_add_sub() {

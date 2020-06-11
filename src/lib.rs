@@ -57,7 +57,6 @@ mod publish;
 mod subscribe;
 mod utils;
 
-
 // Proptest does not currently support borrowed data in strategies:
 // https://github.com/AltSysrq/proptest/issues/9
 //
@@ -70,7 +69,7 @@ mod encoder_test;
 
 pub use crate::{
     connect::{Connack, Connect, ConnectReturnCode, LastWill, Protocol},
-    decoder::decode_slice,
+    decoder::{clone_packet, decode_slice},
     encoder::encode,
     packet::{Packet, PacketType},
     publish::Publish,

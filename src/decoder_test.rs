@@ -179,8 +179,14 @@ fn test_connect() {
         username: Some("rust"),
         password: Some(b"mq"),
     };
-    assert_eq!(Ok(Some(pkt.into())), decode_slice(&mut data));
-    // assert_eq!(data.len(), 0);
+
+    let packet_buf = &mut [0u8; 64];
+    assert_eq!(
+        clone_packet(&mut data, &mut packet_buf[..]).unwrap(),
+        Some(41)
+    );
+    assert_eq!(Ok(Some(pkt.into())), decode_slice(packet_buf));
+    assert_eq!(data.len(), 0);
 }
 
 #[test]
@@ -234,8 +240,16 @@ fn test_publish() {
         decoder::read_header(&data, &mut offset).unwrap(),
         Some((decoder::Header::new(0b00110000).unwrap(), 10))
     );
+    assert_eq!(data.len(), 38);
 
-    match decode_slice(&mut data) {
+    let packet_buf = &mut [0u8; 64];
+    assert_eq!(
+        clone_packet(&mut data, &mut packet_buf[..]).unwrap(),
+        Some(12)
+    );
+    assert_eq!(data.len(), 26);
+
+    match decode_slice(packet_buf) {
         Ok(Some(Packet::Publish(p))) => {
             assert_eq!(p.dup, false);
             assert_eq!(p.retain, false);
@@ -245,27 +259,41 @@ fn test_publish() {
         }
         other => panic!("Failed decode: {:?}", other),
     }
-    // TODO:
-    // match decode_slice(&mut data) {
-    //     Ok(Some(Packet::Publish(p))) => {
-    //         assert_eq!(p.dup, true);
-    //         assert_eq!(p.retain, false);
-    //         assert_eq!(p.qospid, QosPid::AtMostOnce);
-    //         assert_eq!(p.topic_name, "a/b");
-    //         assert_eq!(core::str::from_utf8(p.payload).unwrap(), "hello");
-    //     }
-    //     other => panic!("Failed decode: {:?}", other),
-    // }
-    // match decode_slice(&mut data) {
-    //     Ok(Some(Packet::Publish(p))) => {
-    //         assert_eq!(p.dup, true);
-    //         assert_eq!(p.retain, true);
-    //         assert_eq!(p.qospid, QosPid::from_u8u16(2, 10));
-    //         assert_eq!(p.topic_name, "a/b");
-    //         assert_eq!(core::str::from_utf8(p.payload).unwrap(), "hello");
-    //     }
-    //     other => panic!("Failed decode: {:?}", other),
-    // }
+
+    let packet_buf2 = &mut [0u8; 64];
+    assert_eq!(
+        clone_packet(&mut data, &mut packet_buf2[..]).unwrap(),
+        Some(12)
+    );
+    assert_eq!(data.len(), 14);
+    match decode_slice(packet_buf2) {
+        Ok(Some(Packet::Publish(p))) => {
+            assert_eq!(p.dup, true);
+            assert_eq!(p.retain, false);
+            assert_eq!(p.qospid, QosPid::AtMostOnce);
+            assert_eq!(p.topic_name, "a/b");
+            assert_eq!(core::str::from_utf8(p.payload).unwrap(), "hello");
+        }
+        other => panic!("Failed decode: {:?}", other),
+    }
+
+    let packet_buf3 = &mut [0u8; 64];
+    assert_eq!(
+        clone_packet(&mut data, &mut packet_buf3[..]).unwrap(),
+        Some(14)
+    );
+    assert_eq!(data.len(), 0);
+
+    match decode_slice(packet_buf3) {
+        Ok(Some(Packet::Publish(p))) => {
+            assert_eq!(p.dup, true);
+            assert_eq!(p.retain, true);
+            assert_eq!(p.qospid, QosPid::from_u8u16(2, 10));
+            assert_eq!(p.topic_name, "a/b");
+            assert_eq!(core::str::from_utf8(p.payload).unwrap(), "hello");
+        }
+        other => panic!("Failed decode: {:?}", other),
+    }
 }
 
 #[test]

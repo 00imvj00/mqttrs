@@ -19,7 +19,7 @@ impl<'a> SubscribeTopic<'a> {
     pub(crate) fn from_buffer(buf: &'a [u8], offset: &mut usize) -> Result<Self, Error> {
         let topic_path = read_str(buf, offset)?;
         let qos = QoS::from_u8(buf[*offset])?;
-        *offset +=1;
+        *offset += 1;
         Ok(SubscribeTopic { topic_path, qos })
     }
 }
@@ -125,21 +125,28 @@ impl<'a> Subscribe<'a> {
     pub(crate) fn new(pid: Pid, topics: &'a [SubscribeTopic<'a>]) -> Self {
         Subscribe {
             pid,
-            topic_buf: &[]
+            topic_buf: &[],
         }
     }
 
-    pub(crate) fn from_buffer(remaining_len: usize, buf: &'a [u8], offset: &mut usize) -> Result<Self, Error> {
+    pub(crate) fn from_buffer(
+        remaining_len: usize,
+        buf: &'a [u8],
+        offset: &mut usize,
+    ) -> Result<Self, Error> {
         let payload_end = *offset + remaining_len;
         let pid = Pid::from_buffer(buf, offset)?;
 
-        Ok(Subscribe { pid, topic_buf: &buf[*offset..payload_end] })
+        Ok(Subscribe {
+            pid,
+            topic_buf: &buf[*offset..payload_end],
+        })
     }
 
     pub fn topics(&self) -> SubscribeTopicIter<'a> {
         SubscribeTopicIter {
             buffer: self.topic_buf,
-            offset: 0
+            offset: 0,
         }
     }
 
@@ -172,21 +179,28 @@ impl<'a> Unsubscribe<'a> {
     pub(crate) fn new(pid: Pid, topics: &'a [&'a str]) -> Self {
         Unsubscribe {
             pid,
-            topic_buf: &[]
+            topic_buf: &[],
         }
     }
 
-    pub(crate) fn from_buffer(remaining_len: usize, buf: &'a [u8], offset: &mut usize) -> Result<Self, Error> {
+    pub(crate) fn from_buffer(
+        remaining_len: usize,
+        buf: &'a [u8],
+        offset: &mut usize,
+    ) -> Result<Self, Error> {
         let payload_end = *offset + remaining_len;
         let pid = Pid::from_buffer(buf, offset)?;
 
-        Ok(Unsubscribe { pid, topic_buf: &buf[*offset..payload_end] })
+        Ok(Unsubscribe {
+            pid,
+            topic_buf: &buf[*offset..payload_end],
+        })
     }
 
     pub fn topics(&self) -> UnsubscribeIter<'a> {
         UnsubscribeIter {
             buffer: self.topic_buf,
-            offset: 0
+            offset: 0,
         }
     }
 
@@ -212,20 +226,27 @@ impl<'a> Suback<'a> {
     pub(crate) fn new(pid: Pid, return_codes: &'a [SubscribeReturnCodes]) -> Self {
         Suback {
             pid,
-            return_codes_buf: &[]
+            return_codes_buf: &[],
         }
     }
 
-    pub(crate) fn from_buffer(remaining_len: usize, buf: &'a [u8], offset: &mut usize) -> Result<Self, Error> {
+    pub(crate) fn from_buffer(
+        remaining_len: usize,
+        buf: &'a [u8],
+        offset: &mut usize,
+    ) -> Result<Self, Error> {
         let payload_end = *offset + remaining_len;
         let pid = Pid::from_buffer(buf, offset)?;
-        Ok(Suback { pid, return_codes_buf: &buf[*offset..payload_end] })
+        Ok(Suback {
+            pid,
+            return_codes_buf: &buf[*offset..payload_end],
+        })
     }
 
     pub fn return_codes(&self) -> ReturnCodeIter<'a> {
         ReturnCodeIter {
             buffer: self.return_codes_buf,
-            offset: 0
+            offset: 0,
         }
     }
 

@@ -1,4 +1,5 @@
 use crate::*;
+use bytes::Buf;
 
 /// Decode bytes from a [BytesMut] buffer as a [Packet] enum.
 ///
@@ -30,6 +31,30 @@ use crate::*;
 //     let mem = alloc::vec::Vec::with_capacity(1024);
 //     decode_slice(&mem)
 // }
+
+pub fn clone_packet<'a, 'b>(
+    mut input: impl Buf,
+    output: &'b mut [u8],
+) -> Result<Option<usize>, Error> {
+    let mut offset = 0;
+    while Header::new(input.bytes()[offset]).is_err() {
+        offset += 1;
+        if offset == input.remaining() {
+            return Ok(None);
+        }
+    }
+
+    let start = offset;
+    if let Some((_, remaining_len)) = read_header(input.bytes(), &mut offset)? {
+        let end = start + remaining_len + offset;
+        output[..end - start].copy_from_slice(&input.bytes()[start..end]);
+        input.advance(end - start);
+        Ok(Some(end - start))
+    } else {
+        // Don't have a full packet
+        Ok(None)
+    }
+}
 
 pub fn decode_slice<'a>(buf: &'a [u8]) -> Result<Option<Packet<'a>>, Error> {
     let mut offset = 0;
