@@ -32,15 +32,12 @@ use bytes::Buf;
 //     decode_slice(&mem)
 // }
 
-pub fn clone_packet<'a, 'b>(
-    mut input: impl Buf,
-    output: &'b mut [u8],
-) -> Result<Option<usize>, Error> {
+pub fn clone_packet<'a, 'b>(mut input: impl Buf, output: &'b mut [u8]) -> Result<usize, Error> {
     let mut offset = 0;
     while Header::new(input.bytes()[offset]).is_err() {
         offset += 1;
         if offset == input.remaining() {
-            return Ok(None);
+            return Ok(0);
         }
     }
 
@@ -49,10 +46,10 @@ pub fn clone_packet<'a, 'b>(
         let end = offset + remaining_len;
         output[..end - start].copy_from_slice(&input.bytes()[start..end]);
         input.advance(end - start);
-        Ok(Some(end - start))
+        Ok(end - start)
     } else {
         // Don't have a full packet
-        Ok(None)
+        Ok(0)
     }
 }
 

@@ -122,7 +122,7 @@ impl<'a> Iterator for UnsubscribeIter<'a> {
 }
 
 impl<'a> Subscribe<'a> {
-    pub(crate) fn new(pid: Pid, topics: &'a [SubscribeTopic<'a>]) -> Self {
+    pub fn new(pid: Pid, topics: &'a [SubscribeTopic<'a>]) -> Self {
         Subscribe {
             pid,
             topic_buf: &[],
@@ -176,7 +176,7 @@ impl<'a> Subscribe<'a> {
 }
 
 impl<'a> Unsubscribe<'a> {
-    pub(crate) fn new(pid: Pid, topics: &'a [&'a str]) -> Self {
+    pub fn new(pid: Pid, topics: &'a [&'a str]) -> Self {
         Unsubscribe {
             pid,
             topic_buf: &[],
@@ -223,7 +223,7 @@ impl<'a> Unsubscribe<'a> {
 }
 
 impl<'a> Suback<'a> {
-    pub(crate) fn new(pid: Pid, return_codes: &'a [SubscribeReturnCodes]) -> Self {
+    pub fn new(pid: Pid, return_codes: &'a [SubscribeReturnCodes]) -> Self {
         Suback {
             pid,
             return_codes_buf: &[],
