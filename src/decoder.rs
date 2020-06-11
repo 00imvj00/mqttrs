@@ -27,12 +27,12 @@ use bytes::Buf;
 ///
 /// [Packet]: ../enum.Packet.html
 /// [BytesMut]: https://docs.rs/bytes/0.5.3/bytes/struct.BytesMut.html
-// pub fn decode<'a>(mut buf: impl Buf) -> Result<Option<Packet<'a>>, Error> {
-//     let mem = alloc::vec::Vec::with_capacity(1024);
-//     decode_slice(&mem)
-// }
 
 pub fn clone_packet<'a, 'b>(mut input: impl Buf, output: &'b mut [u8]) -> Result<usize, Error> {
+    if !input.has_remaining() {
+        return Ok(0);
+    }
+
     let mut offset = 0;
     while Header::new(input.bytes()[offset]).is_err() {
         offset += 1;
@@ -162,6 +162,9 @@ pub(crate) fn read_str<'a>(buf: &'a [u8], offset: &mut usize) -> Result<&'a str,
 }
 
 pub(crate) fn read_bytes<'a>(buf: &'a [u8], offset: &mut usize) -> Result<&'a [u8], Error> {
+    if buf[*offset..].len() < 2 {
+        return Err(Error::InvalidLength);
+    }
     let len = ((buf[*offset] as usize) << 8) | buf[*offset + 1] as usize;
     *offset += 2;
     if len > buf[*offset..].len() {
