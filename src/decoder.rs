@@ -46,7 +46,7 @@ pub fn clone_packet<'a, 'b>(
 
     let start = offset;
     if let Some((_, remaining_len)) = read_header(input.bytes(), &mut offset)? {
-        let end = start + remaining_len + offset;
+        let end = offset + remaining_len;
         output[..end - start].copy_from_slice(&input.bytes()[start..end]);
         input.advance(end - start);
         Ok(Some(end - start))

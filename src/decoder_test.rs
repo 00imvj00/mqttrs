@@ -224,6 +224,38 @@ fn test_disconnect() {
     assert_eq!(Ok(Some(Packet::Disconnect)), decode_slice(&mut data));
 }
 
+
+#[test]
+fn test_offset_start() {
+    let mut data: &[u8] = &[
+        1, 2, 3,
+        0b00110000, 10, 0x00, 0x03, 'a' as u8, '/' as u8, 'b' as u8, 'h' as u8, 'e' as u8,
+        'l' as u8, 'l' as u8, 'o' as u8, //
+        0b00111000, 10, 0x00, 0x03, 'a' as u8, '/' as u8, 'b' as u8, 'h' as u8, 'e' as u8,
+        'l' as u8, 'l' as u8, 'o' as u8, //
+        0b00111101, 12, 0x00, 0x03, 'a' as u8, '/' as u8, 'b' as u8, 0, 10, 'h' as u8, 'e' as u8,
+        'l' as u8, 'l' as u8, 'o' as u8,
+    ];
+
+    let packet_buf = &mut [0u8; 64];
+    assert_eq!(
+        clone_packet(&mut data, &mut packet_buf[..]).unwrap(),
+        Some(12)
+    );
+    assert_eq!(data.len(), 29);
+
+    match decode_slice(packet_buf) {
+        Ok(Some(Packet::Publish(p))) => {
+            assert_eq!(p.dup, false);
+            assert_eq!(p.retain, false);
+            assert_eq!(p.qospid, QosPid::AtMostOnce);
+            assert_eq!(p.topic_name, "a/b");
+            assert_eq!(core::str::from_utf8(p.payload).unwrap(), "hello");
+        }
+        other => panic!("Failed decode: {:?}", other),
+    }
+}
+
 #[test]
 fn test_publish() {
     let mut data: &[u8] = &[
