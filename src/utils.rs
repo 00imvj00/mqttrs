@@ -11,8 +11,6 @@ use std::{
     io::{Error as IoError, ErrorKind},
 };
 
-
-
 /// Errors returned by [`encode()`] and [`decode()`].
 ///
 /// [`encode()`]: fn.encode.html

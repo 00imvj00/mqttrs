@@ -94,10 +94,7 @@ pub struct Unsubscribe {
 
 impl Subscribe {
     pub fn new(pid: Pid, topics: LimitedVec<SubscribeTopic>) -> Self {
-        Subscribe {
-            pid,
-            topics,
-        }
+        Subscribe { pid, topics }
     }
 
     pub(crate) fn from_buffer(
@@ -116,10 +113,7 @@ impl Subscribe {
             _res.map_err(|_| Error::InvalidLength)?;
         }
 
-        Ok(Subscribe {
-            pid,
-            topics,
-        })
+        Ok(Subscribe { pid, topics })
     }
 
     pub(crate) fn to_buffer(&self, mut buf: impl BufMut) -> Result<usize, Error> {
@@ -149,10 +143,7 @@ impl Subscribe {
 
 impl Unsubscribe {
     pub fn new(pid: Pid, topics: LimitedVec<LimitedString>) -> Self {
-        Unsubscribe {
-            pid,
-            topics,
-        }
+        Unsubscribe { pid, topics }
     }
 
     pub(crate) fn from_buffer(
@@ -171,10 +162,7 @@ impl Unsubscribe {
             _res.map_err(|_| Error::InvalidLength)?;
         }
 
-        Ok(Unsubscribe {
-            pid,
-            topics,
-        })
+        Ok(Unsubscribe { pid, topics })
     }
 
     pub(crate) fn to_buffer(&self, mut buf: impl BufMut) -> Result<usize, Error> {
@@ -216,10 +204,7 @@ impl Suback {
             _res.map_err(|_| Error::InvalidLength)?;
         }
 
-        Ok(Suback {
-            pid,
-            return_codes,
-        })
+        Ok(Suback { pid, return_codes })
     }
 
     pub(crate) fn to_buffer(&self, mut buf: impl BufMut) -> Result<usize, Error> {

@@ -142,7 +142,10 @@ fn test_subscribe() {
 
 #[test]
 fn test_suback() {
-    let return_codes = [SubscribeReturnCodes::Success(QoS::ExactlyOnce)].iter().cloned().collect();
+    let return_codes = [SubscribeReturnCodes::Success(QoS::ExactlyOnce)]
+        .iter()
+        .cloned()
+        .collect();
     let packet = Suback::new(Pid::try_from(12321).unwrap(), return_codes).into();
     assert_decode!(Packet::Suback(_), &packet);
     assert_decode_slice!(Packet::Suback(_), &packet);
