@@ -2,7 +2,7 @@ use crate::*;
 
 /// Base enum for all MQTT packet types.
 ///
-/// This is the main type you'll be interacting with, as an output of [`decode()`] and an input of
+/// This is the main type you'll be interacting with, as an output of [`decode_slice()`] and an input of
 /// [`encode()`]. Most variants can be constructed directly without using methods.
 ///
 /// ```
@@ -15,15 +15,15 @@ use crate::*;
 /// let publish = Publish { dup: false,
 ///                         qospid: QosPid::AtMostOnce,
 ///                         retain: false,
-///                         topic_name: "to/pic".into(),
-///                         payload: "payload".into() };
+///                         topic_name: "to/pic",
+///                         payload: b"payload" };
 /// let pkt: Packet = publish.into();
 /// // Identifyer-only packets
 /// let pkt = Packet::Puback(Pid::try_from(42).unwrap());
 /// ```
 ///
 /// [`encode()`]: fn.encode.html
-/// [`decode()`]: fn.decode.html
+/// [`decode_slice()`]: fn.decode_slice.html
 #[derive(Debug, Clone, PartialEq)]
 pub enum Packet<'a> {
     /// [MQTT 3.1](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718028)
@@ -43,7 +43,7 @@ pub enum Packet<'a> {
     /// [MQTT 3.8](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718063)
     Subscribe(Subscribe<'a>),
     /// [MQTT 3.9](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718068)
-    Suback(Suback<'a>),
+    Suback(Suback),
     /// [MQTT 3.10](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718072)
     Unsubscribe(Unsubscribe<'a>),
     /// [MQTT 3.11](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718077)
@@ -79,6 +79,7 @@ impl<'a> Packet<'a> {
         }
     }
 }
+
 macro_rules! packet_from_borrowed {
     ($($t:ident),+) => {
         $(
@@ -90,14 +91,20 @@ macro_rules! packet_from_borrowed {
         )+
     }
 }
-
-impl<'a> From<Connack> for Packet<'a> {
-    fn from(p: Connack) -> Self {
-        Packet::Connack(p)
+macro_rules! packet_from {
+    ($($t:ident),+) => {
+        $(
+            impl<'a> From<$t> for Packet<'a> {
+                fn from(p: $t) -> Self {
+                    Packet::$t(p)
+                }
+            }
+        )+
     }
 }
 
-packet_from_borrowed!(Connect, Publish, Subscribe, Suback, Unsubscribe);
+packet_from_borrowed!(Connect, Publish, Subscribe, Unsubscribe);
+packet_from!(Suback, Connack);
 
 /// Packet type variant, without the associated data.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]

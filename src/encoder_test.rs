@@ -1,6 +1,7 @@
 use crate::*;
 use bytes::BytesMut;
 use core::convert::TryFrom;
+use heapless::Vec;
 
 macro_rules! assert_decode {
     ($res:pat, $pkt:expr) => {
@@ -133,8 +134,8 @@ fn test_subscribe() {
         topic_path: "a/b",
         qos: QoS::ExactlyOnce,
     };
-    let topics = [stopic];
-    let packet = Subscribe::new(Pid::try_from(345).unwrap(), &topics).into();
+    let topics = Vec::from_slice(&[stopic]).unwrap();
+    let packet = Subscribe::new(Pid::try_from(345).unwrap(), topics).into();
     assert_decode!(Packet::Subscribe(_), &packet);
     assert_decode_slice!(Packet::Subscribe(_), &packet);
 }
@@ -142,15 +143,15 @@ fn test_subscribe() {
 #[test]
 fn test_suback() {
     let return_code = SubscribeReturnCodes::Success(QoS::ExactlyOnce);
-    let return_codes = [return_code];
-    let packet = Suback::new(Pid::try_from(12321).unwrap(), &return_codes).into();
+    let return_codes = Vec::from_slice(&[return_code]).unwrap();
+    let packet = Suback::new(Pid::try_from(12321).unwrap(), return_codes).into();
     assert_decode!(Packet::Suback(_), &packet);
     assert_decode_slice!(Packet::Suback(_), &packet);
 }
 
 #[test]
 fn test_unsubscribe() {
-    let packet = Unsubscribe::new(Pid::try_from(12321).unwrap(), &["a/b"]).into();
+    let packet = Unsubscribe::new(Pid::try_from(12321).unwrap(), Vec::from_slice(&["a/b"]).unwrap()).into();
     assert_decode!(Packet::Unsubscribe(_), &packet);
     assert_decode_slice!(Packet::Unsubscribe(_), &packet);
 }

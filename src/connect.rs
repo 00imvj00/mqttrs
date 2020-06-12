@@ -24,7 +24,7 @@ impl Protocol {
         match (name, level) {
             ("MQIsdp", 3) => Ok(Protocol::MQIsdp),
             ("MQTT", 4) => Ok(Protocol::MQTT311),
-            _ => Err(Error::InvalidProtocol(level)),
+            _ => Err(Error::InvalidProtocol(name.into(), level)),
         }
     }
     pub(crate) fn from_buffer<'a>(buf: &'a [u8], offset: &mut usize) -> Result<Self, Error> {

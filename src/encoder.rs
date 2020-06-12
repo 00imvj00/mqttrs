@@ -11,8 +11,8 @@ use bytes::BufMut;
 ///    dup: false,
 ///    qospid: QosPid::AtMostOnce,
 ///    retain: false,
-///    topic_name: "test".into(),
-///    payload: "hello".into(),
+///    topic_name: "test",
+///    payload: b"hello",
 /// }.into();
 ///
 /// // Allocate buffer (should be appropriately-sized or able to grow as needed).

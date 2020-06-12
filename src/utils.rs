@@ -11,6 +11,8 @@ use std::{
     io::{Error as IoError, ErrorKind},
 };
 
+
+
 /// Errors returned by [`encode()`] and [`decode()`].
 ///
 /// [`encode()`]: fn.encode.html
@@ -28,7 +30,10 @@ pub enum Error {
     /// Tried to decode a ConnectReturnCode > 5.
     InvalidConnectReturnCode(u8),
     /// Tried to decode an unknown protocol.
-    InvalidProtocol(u8),
+    #[cfg(feature = "std")]
+    InvalidProtocol(std::string::String, u8),
+    #[cfg(not(feature = "std"))]
+    InvalidProtocol(heapless::String<heapless::consts::U10>, u8),
     /// Tried to decode an invalid fixed header (packet type, flags, or remaining_length).
     InvalidHeader,
     /// Trying to encode/decode an invalid length.

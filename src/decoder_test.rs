@@ -236,7 +236,8 @@ fn test_offset_start() {
     assert_eq!(clone_packet(&mut data, &mut packet_buf[..]).unwrap(), 12);
     assert_eq!(data.len(), 29);
 
-    match decode_slice(packet_buf) {
+    let res = decode_slice(packet_buf);
+    match res {
         Ok(Some(Packet::Publish(p))) => {
             assert_eq!(p.dup, false);
             assert_eq!(p.retain, false);
@@ -299,7 +300,8 @@ fn test_publish() {
     assert_eq!(clone_packet(&mut data, &mut packet_buf3[..]).unwrap(), 14);
     assert_eq!(data.len(), 0);
 
-    match decode_slice(packet_buf3) {
+    let res = decode_slice(packet_buf3);
+    match res {
         Ok(Some(Packet::Publish(p))) => {
             assert_eq!(p.dup, true);
             assert_eq!(p.retain, true);
@@ -359,7 +361,7 @@ fn test_subscribe() {
                 topic_path: "a/b",
                 qos: QoS::AtMostOnce,
             };
-            assert_eq!(s.topics().next(), Some(t));
+            assert_eq!(s.topics.get(0), Some(&t));
         }
         other => panic!("Failed decode: {:?}", other),
     }
@@ -372,8 +374,8 @@ fn test_suback() {
         Ok(Some(Packet::Suback(s))) => {
             assert_eq!(s.pid.get(), 10);
             assert_eq!(
-                s.return_codes().next(),
-                Some(SubscribeReturnCodes::Success(QoS::ExactlyOnce))
+                s.return_codes.get(0),
+                Some(&SubscribeReturnCodes::Success(QoS::ExactlyOnce))
             );
         }
         other => panic!("Failed decode: {:?}", other),
@@ -386,7 +388,7 @@ fn test_unsubscribe() {
     match decode_slice(&mut data) {
         Ok(Some(Packet::Unsubscribe(a))) => {
             assert_eq!(a.pid.get(), 10);
-            assert_eq!(a.topics().next(), Some("a"));
+            assert_eq!(a.topics.get(0), Some(&"a"));
         }
         other => panic!("Failed decode: {:?}", other),
     }

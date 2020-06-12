@@ -15,9 +15,10 @@ use bytes::Buf;
 ///                                'h' as u8, 'e' as u8, 'l' as u8, 'l' as u8, 'o' as u8] as &[u8]);
 ///
 /// // Parse the bytes and check the result.
-/// match decode(&mut buf) {
+/// let res = decode_slice(&mut buf);
+/// match res {
 ///     Ok(Some(Packet::Publish(p))) => {
-///         assert_eq!(p.payload, "hello".as_bytes().to_vec());
+///         assert_eq!(p.payload, b"hello");
 ///     },
 ///     // In real code you probably don't want to panic like that ;)
 ///     Ok(None) => panic!("not enough data"),
