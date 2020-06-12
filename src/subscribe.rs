@@ -1,8 +1,12 @@
 use crate::{decoder::*, encoder::*, *};
 use bytes::BufMut;
-use heapless::{consts, Vec};
 #[cfg(feature = "derive")]
 use serde::{Deserialize, Serialize};
+
+#[cfg(feature = "std")]
+type LimitedVec<T> = std::vec::Vec<T>;
+#[cfg(not(feature = "std"))]
+type LimitedVec<T> = heapless::Vec<T, heapless::consts::U5>;
 
 /// Subscribe topic.
 ///
@@ -62,7 +66,7 @@ impl SubscribeReturnCodes {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Subscribe<'a> {
     pub pid: Pid,
-    pub topics: Vec<SubscribeTopic<'a>, consts::U5>,
+    pub topics: LimitedVec<SubscribeTopic<'a>>,
 }
 
 /// Subsack packet ([MQTT 3.9]).
@@ -71,7 +75,7 @@ pub struct Subscribe<'a> {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Suback {
     pub pid: Pid,
-    pub return_codes: Vec<SubscribeReturnCodes, consts::U5>,
+    pub return_codes: LimitedVec<SubscribeReturnCodes>,
 }
 
 /// Unsubscribe packet ([MQTT 3.10]).
@@ -80,11 +84,11 @@ pub struct Suback {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Unsubscribe<'a> {
     pub pid: Pid,
-    pub topics: Vec<&'a str, consts::U5>,
+    pub topics: LimitedVec<&'a str>,
 }
 
 impl<'a> Subscribe<'a> {
-    pub fn new(pid: Pid, topics: Vec<SubscribeTopic<'a>, consts::U5>) -> Self {
+    pub fn new(pid: Pid, topics: LimitedVec<SubscribeTopic<'a>>) -> Self {
         Subscribe {
             pid,
             topics,
@@ -99,9 +103,12 @@ impl<'a> Subscribe<'a> {
         let payload_end = *offset + remaining_len;
         let pid = Pid::from_buffer(buf, offset)?;
 
-        let mut topics = Vec::new();
+        let mut topics = LimitedVec::new();
         while *offset < payload_end {
-            topics.push(SubscribeTopic::from_buffer(buf, offset)?).map_err(|_| Error::InvalidLength)?;
+            let _res = topics.push(SubscribeTopic::from_buffer(buf, offset)?);
+
+            #[cfg(not(feature = "std"))]
+            _res.map_err(|_| Error::InvalidLength)?;
         }
 
         Ok(Subscribe {
@@ -136,7 +143,7 @@ impl<'a> Subscribe<'a> {
 }
 
 impl<'a> Unsubscribe<'a> {
-    pub fn new(pid: Pid, topics: Vec<&'a str, consts::U5>) -> Self {
+    pub fn new(pid: Pid, topics: LimitedVec<&'a str>) -> Self {
         Unsubscribe {
             pid,
             topics,
@@ -151,9 +158,12 @@ impl<'a> Unsubscribe<'a> {
         let payload_end = *offset + remaining_len;
         let pid = Pid::from_buffer(buf, offset)?;
 
-        let mut topics = Vec::new();
+        let mut topics = LimitedVec::new();
         while *offset < payload_end {
-            topics.push(read_str(buf, offset)?).map_err(|_| Error::InvalidLength)?;
+            let _res = topics.push(read_str(buf, offset)?);
+
+            #[cfg(not(feature = "std"))]
+            _res.map_err(|_| Error::InvalidLength)?;
         }
 
         Ok(Unsubscribe {
@@ -181,7 +191,7 @@ impl<'a> Unsubscribe<'a> {
 }
 
 impl Suback {
-    pub fn new(pid: Pid, return_codes: Vec<SubscribeReturnCodes, consts::U5>) -> Self {
+    pub fn new(pid: Pid, return_codes: LimitedVec<SubscribeReturnCodes>) -> Self {
         Suback { pid, return_codes }
     }
 
@@ -193,9 +203,12 @@ impl Suback {
         let payload_end = *offset + remaining_len;
         let pid = Pid::from_buffer(buf, offset)?;
 
-        let mut return_codes = Vec::new();
+        let mut return_codes = LimitedVec::new();
         while *offset < payload_end {
-            return_codes.push(SubscribeReturnCodes::from_buffer(buf, offset)?).map_err(|_| Error::InvalidLength)?;
+            let _res = return_codes.push(SubscribeReturnCodes::from_buffer(buf, offset)?);
+
+            #[cfg(not(feature = "std"))]
+            _res.map_err(|_| Error::InvalidLength)?;
         }
 
         Ok(Suback {
