@@ -15,8 +15,7 @@ use bytes::Buf;
 ///                                'h' as u8, 'e' as u8, 'l' as u8, 'l' as u8, 'o' as u8] as &[u8]);
 ///
 /// // Parse the bytes and check the result.
-/// let res = decode_slice(&mut buf);
-/// match res {
+/// match decode_slice(&mut buf) {
 ///     Ok(Some(Packet::Publish(p))) => {
 ///         assert_eq!(p.payload, b"hello");
 ///     },
@@ -29,7 +28,7 @@ use bytes::Buf;
 /// [Packet]: ../enum.Packet.html
 /// [BytesMut]: https://docs.rs/bytes/0.5.3/bytes/struct.BytesMut.html
 
-pub fn clone_packet<'a, 'b>(mut input: impl Buf, output: &'b mut [u8]) -> Result<usize, Error> {
+pub fn clone_packet<'a>(mut input: impl Buf, output: &'a mut [u8]) -> Result<usize, Error> {
     if !input.has_remaining() {
         return Ok(0);
     }

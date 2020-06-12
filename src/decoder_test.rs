@@ -236,8 +236,7 @@ fn test_offset_start() {
     assert_eq!(clone_packet(&mut data, &mut packet_buf[..]).unwrap(), 12);
     assert_eq!(data.len(), 29);
 
-    let res = decode_slice(packet_buf);
-    match res {
+    match decode_slice(packet_buf) {
         Ok(Some(Packet::Publish(p))) => {
             assert_eq!(p.dup, false);
             assert_eq!(p.retain, false);
@@ -300,8 +299,7 @@ fn test_publish() {
     assert_eq!(clone_packet(&mut data, &mut packet_buf3[..]).unwrap(), 14);
     assert_eq!(data.len(), 0);
 
-    let res = decode_slice(packet_buf3);
-    match res {
+    match decode_slice(packet_buf3) {
         Ok(Some(Packet::Publish(p))) => {
             assert_eq!(p.dup, true);
             assert_eq!(p.retain, true);
