@@ -41,11 +41,11 @@ pub enum Packet<'a> {
     /// [MQTT 3.7](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718058)
     Pubcomp(Pid),
     /// [MQTT 3.8](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718063)
-    Subscribe(Subscribe<'a>),
+    Subscribe(Subscribe),
     /// [MQTT 3.9](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718068)
     Suback(Suback),
     /// [MQTT 3.10](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718072)
-    Unsubscribe(Unsubscribe<'a>),
+    Unsubscribe(Unsubscribe),
     /// [MQTT 3.11](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718077)
     Unsuback(Pid),
     /// [MQTT 3.12](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718081)
@@ -103,8 +103,8 @@ macro_rules! packet_from {
     }
 }
 
-packet_from_borrowed!(Connect, Publish, Subscribe, Unsubscribe);
-packet_from!(Suback, Connack);
+packet_from_borrowed!(Connect, Publish);
+packet_from!(Suback, Connack, Subscribe, Unsubscribe);
 
 /// Packet type variant, without the associated data.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]

@@ -1,5 +1,6 @@
 use crate::*;
 use bytes::BytesMut;
+use subscribe::LimitedString;
 
 macro_rules! header {
     ($t:ident, $d:expr, $q:ident, $r:expr) => {
@@ -356,7 +357,7 @@ fn test_subscribe() {
         Ok(Some(Packet::Subscribe(s))) => {
             assert_eq!(s.pid.get(), 10);
             let t = SubscribeTopic {
-                topic_path: "a/b",
+                topic_path: LimitedString::from("a/b"),
                 qos: QoS::AtMostOnce,
             };
             assert_eq!(s.topics.get(0), Some(&t));
@@ -386,7 +387,7 @@ fn test_unsubscribe() {
     match decode_slice(&mut data) {
         Ok(Some(Packet::Unsubscribe(a))) => {
             assert_eq!(a.pid.get(), 10);
-            assert_eq!(a.topics.get(0), Some(&"a"));
+            assert_eq!(a.topics.get(0), Some(&LimitedString::from("a")));
         }
         other => panic!("Failed decode: {:?}", other),
     }

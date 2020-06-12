@@ -4,9 +4,14 @@ use bytes::BufMut;
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "std")]
-type LimitedVec<T> = std::vec::Vec<T>;
+pub(crate) type LimitedVec<T> = std::vec::Vec<T>;
 #[cfg(not(feature = "std"))]
-type LimitedVec<T> = heapless::Vec<T, heapless::consts::U5>;
+pub(crate) type LimitedVec<T> = heapless::Vec<T, heapless::consts::U5>;
+
+#[cfg(feature = "std")]
+pub(crate) type LimitedString = std::string::String;
+#[cfg(not(feature = "std"))]
+pub(crate) type LimitedString = heapless::String<heapless::consts::U128>;
 
 /// Subscribe topic.
 ///
@@ -15,14 +20,14 @@ type LimitedVec<T> = heapless::Vec<T, heapless::consts::U5>;
 /// [Subscribe]: struct.Subscribe.html
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "derive", derive(Serialize, Deserialize))]
-pub struct SubscribeTopic<'a> {
-    pub topic_path: &'a str,
+pub struct SubscribeTopic {
+    pub topic_path: LimitedString,
     pub qos: QoS,
 }
 
-impl<'a> SubscribeTopic<'a> {
-    pub(crate) fn from_buffer(buf: &'a [u8], offset: &mut usize) -> Result<Self, Error> {
-        let topic_path = read_str(buf, offset)?;
+impl SubscribeTopic {
+    pub(crate) fn from_buffer(buf: &[u8], offset: &mut usize) -> Result<Self, Error> {
+        let topic_path = LimitedString::from(read_str(buf, offset)?);
         let qos = QoS::from_u8(buf[*offset])?;
         *offset += 1;
         Ok(SubscribeTopic { topic_path, qos })
@@ -64,9 +69,9 @@ impl SubscribeReturnCodes {
 ///
 /// [MQTT 3.8]: http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718063
 #[derive(Debug, Clone, PartialEq)]
-pub struct Subscribe<'a> {
+pub struct Subscribe {
     pub pid: Pid,
-    pub topics: LimitedVec<SubscribeTopic<'a>>,
+    pub topics: LimitedVec<SubscribeTopic>,
 }
 
 /// Subsack packet ([MQTT 3.9]).
@@ -82,13 +87,13 @@ pub struct Suback {
 ///
 /// [MQTT 3.10]: http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718072
 #[derive(Debug, Clone, PartialEq)]
-pub struct Unsubscribe<'a> {
+pub struct Unsubscribe {
     pub pid: Pid,
-    pub topics: LimitedVec<&'a str>,
+    pub topics: LimitedVec<LimitedString>,
 }
 
-impl<'a> Subscribe<'a> {
-    pub fn new(pid: Pid, topics: LimitedVec<SubscribeTopic<'a>>) -> Self {
+impl Subscribe {
+    pub fn new(pid: Pid, topics: LimitedVec<SubscribeTopic>) -> Self {
         Subscribe {
             pid,
             topics,
@@ -97,7 +102,7 @@ impl<'a> Subscribe<'a> {
 
     pub(crate) fn from_buffer(
         remaining_len: usize,
-        buf: &'a [u8],
+        buf: &[u8],
         offset: &mut usize,
     ) -> Result<Self, Error> {
         let payload_end = *offset + remaining_len;
@@ -134,7 +139,7 @@ impl<'a> Subscribe<'a> {
 
         // Topics
         for topic in &self.topics {
-            write_string(topic.topic_path, &mut buf)?;
+            write_string(topic.topic_path.as_str(), &mut buf)?;
             buf.put_u8(topic.qos.to_u8());
         }
 
@@ -142,8 +147,8 @@ impl<'a> Subscribe<'a> {
     }
 }
 
-impl<'a> Unsubscribe<'a> {
-    pub fn new(pid: Pid, topics: LimitedVec<&'a str>) -> Self {
+impl Unsubscribe {
+    pub fn new(pid: Pid, topics: LimitedVec<LimitedString>) -> Self {
         Unsubscribe {
             pid,
             topics,
@@ -152,7 +157,7 @@ impl<'a> Unsubscribe<'a> {
 
     pub(crate) fn from_buffer(
         remaining_len: usize,
-        buf: &'a [u8],
+        buf: &[u8],
         offset: &mut usize,
     ) -> Result<Self, Error> {
         let payload_end = *offset + remaining_len;
@@ -160,7 +165,7 @@ impl<'a> Unsubscribe<'a> {
 
         let mut topics = LimitedVec::new();
         while *offset < payload_end {
-            let _res = topics.push(read_str(buf, offset)?);
+            let _res = topics.push(LimitedString::from(read_str(buf, offset)?));
 
             #[cfg(not(feature = "std"))]
             _res.map_err(|_| Error::InvalidLength)?;
