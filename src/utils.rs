@@ -1,5 +1,5 @@
-use bytes::BufMut;
 use core::{convert::TryFrom, fmt, num::NonZeroU16};
+use crate::encoder::write_u16;
 
 #[cfg(feature = "derive")]
 use serde::{Deserialize, Serialize};
@@ -126,8 +126,8 @@ impl Pid {
         Self::try_from(pid)
     }
 
-    pub(crate) fn to_buffer(self, mut buf: impl BufMut) -> Result<(), Error> {
-        Ok(buf.put_u16(self.get()))
+    pub(crate) fn to_buffer(self, buf: &mut [u8], offset: &mut usize) -> Result<(), Error> {
+        write_u16(buf, offset, self.get())
     }
 }
 

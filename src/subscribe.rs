@@ -1,5 +1,4 @@
 use crate::{decoder::*, encoder::*, *};
-use bytes::BufMut;
 #[cfg(feature = "derive")]
 use serde::{Deserialize, Serialize};
 
@@ -116,25 +115,25 @@ impl Subscribe {
         Ok(Subscribe { pid, topics })
     }
 
-    pub(crate) fn to_buffer(&self, mut buf: impl BufMut) -> Result<usize, Error> {
+    pub(crate) fn to_buffer(&self, buf: &mut [u8], offset: &mut usize) -> Result<usize, Error> {
         let header: u8 = 0b10000010;
-        check_remaining(&mut buf, 1)?;
-        buf.put_u8(header);
+        check_remaining(buf, offset, 1)?;
+        write_u8(buf, offset, header)?;
 
         // Length: pid(2) + topic.for_each(2+len + qos(1))
         let mut length = 2;
         for topic in &self.topics {
             length += topic.topic_path.len() + 2 + 1;
         }
-        let write_len = write_length(length, &mut buf)? + 1;
+        let write_len = write_length(buf, offset, length)? + 1;
 
         // Pid
-        self.pid.to_buffer(&mut buf)?;
+        self.pid.to_buffer(buf, offset)?;
 
         // Topics
         for topic in &self.topics {
-            write_string(topic.topic_path.as_str(), &mut buf)?;
-            buf.put_u8(topic.qos.to_u8());
+            write_string(buf, offset, topic.topic_path.as_str())?;
+            write_u8(buf, offset, topic.qos.to_u8())?;
         }
 
         Ok(write_len)
@@ -165,19 +164,19 @@ impl Unsubscribe {
         Ok(Unsubscribe { pid, topics })
     }
 
-    pub(crate) fn to_buffer(&self, mut buf: impl BufMut) -> Result<usize, Error> {
+    pub(crate) fn to_buffer(&self, buf: &mut [u8], offset: &mut usize) -> Result<usize, Error> {
         let header: u8 = 0b10100010;
         let mut length = 2;
         for topic in &self.topics {
             length += 2 + topic.len();
         }
-        check_remaining(&mut buf, 1)?;
-        buf.put_u8(header);
+        check_remaining(buf, offset, 1)?;
+        write_u8(buf, offset, header)?;
 
-        let write_len = write_length(length, &mut buf)? + 1;
-        self.pid.to_buffer(&mut buf)?;
+        let write_len = write_length(buf, offset, length)? + 1;
+        self.pid.to_buffer(buf, offset)?;
         for topic in &self.topics {
-            write_string(topic, &mut buf)?;
+            write_string(buf, offset, topic)?;
         }
         Ok(write_len)
     }
@@ -207,16 +206,16 @@ impl Suback {
         Ok(Suback { pid, return_codes })
     }
 
-    pub(crate) fn to_buffer(&self, mut buf: impl BufMut) -> Result<usize, Error> {
+    pub(crate) fn to_buffer(&self, buf: &mut [u8], offset: &mut usize) -> Result<usize, Error> {
         let header: u8 = 0b10010000;
         let length = 2 + self.return_codes.len();
-        check_remaining(&mut buf, 1)?;
-        buf.put_u8(header);
+        check_remaining(buf, offset, 1)?;
+        write_u8(buf, offset, header)?;
 
-        let write_len = write_length(length, &mut buf)? + 1;
-        self.pid.to_buffer(&mut buf)?;
+        let write_len = write_length(buf, offset, length)? + 1;
+        self.pid.to_buffer(buf, offset)?;
         for rc in &self.return_codes {
-            buf.put_u8(rc.to_u8());
+            write_u8(buf, offset, rc.to_u8())?;
         }
         Ok(write_len)
     }

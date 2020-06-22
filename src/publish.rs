@@ -1,5 +1,4 @@
 use crate::{decoder::*, encoder::*, *};
-use bytes::BufMut;
 
 /// Publish packet ([MQTT 3.3]).
 ///
@@ -37,7 +36,7 @@ impl<'a> Publish<'a> {
             payload: &buf[*offset..payload_end],
         })
     }
-    pub(crate) fn to_buffer(&self, mut buf: impl BufMut) -> Result<usize, Error> {
+    pub(crate) fn to_buffer(&self, buf: &mut [u8], offset: &mut usize) -> Result<usize, Error> {
         // Header
         let mut header: u8 = match self.qospid {
             QosPid::AtMostOnce => 0b00110000,
@@ -50,8 +49,8 @@ impl<'a> Publish<'a> {
         if self.retain {
             header |= 0b00000001 as u8;
         };
-        check_remaining(&mut buf, 1)?;
-        buf.put_u8(header);
+        check_remaining(buf, offset, 1)?;
+        write_u8(buf, offset, header)?;
 
         // Length: topic (2+len) + pid (0/2) + payload (len)
         let length = self.topic_name.len()
@@ -61,20 +60,22 @@ impl<'a> Publish<'a> {
             }
             + self.payload.len();
 
-        let write_len = write_length(length, &mut buf)? + 1;
+        let write_len = write_length(buf, offset, length)? + 1;
 
         // Topic
-        write_string(self.topic_name, &mut buf)?;
+        write_string(buf, offset, self.topic_name)?;
 
         // Pid
         match self.qospid {
             QosPid::AtMostOnce => (),
-            QosPid::AtLeastOnce(pid) => pid.to_buffer(&mut buf)?,
-            QosPid::ExactlyOnce(pid) => pid.to_buffer(&mut buf)?,
+            QosPid::AtLeastOnce(pid) => pid.to_buffer(buf, offset)?,
+            QosPid::ExactlyOnce(pid) => pid.to_buffer(buf, offset)?,
         }
 
         // Payload
-        buf.put_slice(self.payload);
+        for &byte in self.payload {
+            write_u8(buf, offset, byte)?;
+        }
 
         Ok(write_len)
     }

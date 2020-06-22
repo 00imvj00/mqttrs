@@ -70,7 +70,7 @@ mod encoder_test;
 pub use crate::{
     connect::{Connack, Connect, ConnectReturnCode, LastWill, Protocol},
     decoder::{clone_packet, decode_slice},
-    encoder::encode,
+    encoder::encode_slice,
     packet::{Packet, PacketType},
     publish::Publish,
     subscribe::{Suback, Subscribe, SubscribeReturnCodes, SubscribeTopic, Unsubscribe},
