@@ -10,7 +10,7 @@ pub(crate) type LimitedVec<T> = heapless::Vec<T, heapless::consts::U5>;
 #[cfg(feature = "std")]
 pub(crate) type LimitedString = std::string::String;
 #[cfg(not(feature = "std"))]
-pub(crate) type LimitedString = heapless::String<heapless::consts::U128>;
+pub(crate) type LimitedString = heapless::String<heapless::consts::U256>;
 
 /// Subscribe topic.
 ///
