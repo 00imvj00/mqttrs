@@ -126,7 +126,7 @@ impl Connect {
     pub(crate) fn from_buffer(buf: &mut BytesMut) -> Result<Self, Error> {
         let protocol_name = read_string(buf)?;
         let protocol_level = buf.get_u8();
-        let protocol = Protocol::new(&protocol_name, protocol_level).unwrap();
+        let protocol = Protocol::new(&protocol_name, protocol_level)?;
 
         let connect_flags = buf.get_u8();
         let keep_alive = buf.get_u16();
@@ -136,7 +136,7 @@ impl Connect {
         let last_will = if connect_flags & 0b100 != 0 {
             let will_topic = read_string(buf)?;
             let will_message = read_bytes(buf)?;
-            let will_qod = QoS::from_u8((connect_flags & 0b11000) >> 3).unwrap();
+            let will_qod = QoS::from_u8((connect_flags & 0b11000) >> 3)?;
             Some(LastWill {
                 topic: will_topic,
                 message: will_message,
