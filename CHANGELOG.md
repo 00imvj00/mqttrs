@@ -1,3 +1,10 @@
+# Unreleased
+
+## Bugfixes
+
+* Return error for invalid version instead of panicking ([#31](https://github.com/00imvj00/mqttrs/pull/31))
+
+
 # 0.3 (2020-03-23)
 
 ## API changes
