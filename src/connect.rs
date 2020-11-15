@@ -1,5 +1,4 @@
 use crate::{decoder::*, encoder::*, *};
-use bytes::{Buf, BufMut};
 
 /// Protocol version.
 ///
@@ -27,18 +26,29 @@ impl Protocol {
             _ => Err(Error::InvalidProtocol(name.into(), level)),
         }
     }
-    pub(crate) fn to_buffer(&self, mut buf: impl BufMut) -> Result<usize, Error> {
+    pub(crate) fn from_buffer<'a>(buf: &'a [u8], offset: &mut usize) -> Result<Self, Error> {
+        let protocol_name = read_str(buf, offset)?;
+        let protocol_level = buf[*offset];
+        *offset += 1;
+
+        Protocol::new(protocol_name, protocol_level)
+    }
+    pub(crate) fn to_buffer(&self, buf: &mut [u8], offset: &mut usize) -> Result<usize, Error> {
         match self {
             Protocol::MQTT311 => {
                 let slice = &[0u8, 4, 'M' as u8, 'Q' as u8, 'T' as u8, 'T' as u8, 4];
-                buf.put_slice(slice);
+                for &byte in slice {
+                    write_u8(buf, offset, byte)?;
+                }
                 Ok(slice.len())
             }
             Protocol::MQIsdp => {
                 let slice = &[
                     0u8, 4, 'M' as u8, 'Q' as u8, 'i' as u8, 's' as u8, 'd' as u8, 'p' as u8, 4,
                 ];
-                buf.put_slice(slice);
+                for &byte in slice {
+                    write_u8(buf, offset, byte)?;
+                }
                 Ok(slice.len())
             }
         }
@@ -102,14 +112,14 @@ impl ConnectReturnCode {
 ///
 /// [MQTT 3.1]: http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718028
 #[derive(Debug, Clone, PartialEq)]
-pub struct Connect<'a, 'b, 'c, 'd> {
+pub struct Connect<'a> {
     pub protocol: Protocol,
     pub keep_alive: u16,
     pub client_id: &'a str,
     pub clean_session: bool,
-    pub last_will: Option<LastWill<'b>>,
-    pub username: Option<&'c str>,
-    pub password: Option<&'d [u8]>,
+    pub last_will: Option<LastWill<'a>>,
+    pub username: Option<&'a str>,
+    pub password: Option<&'a [u8]>,
 }
 
 /// Connack packet ([MQTT 3.2]).
@@ -121,21 +131,20 @@ pub struct Connack {
     pub code: ConnectReturnCode,
 }
 
-impl<'a, 'b, 'c, 'd> Connect<'a, 'b, 'c, 'd> {
-    pub(crate) fn from_buffer(mut buf: impl Buf) -> Result<Self, Error> {
-        let protocol_name = read_string(&mut buf)?;
-        let protocol_level = buf.get_u8();
-        let protocol = Protocol::new(&protocol_name, protocol_level).unwrap();
+impl<'a> Connect<'a> {
+    pub(crate) fn from_buffer(buf: &'a [u8], offset: &mut usize) -> Result<Self, Error> {
+        let protocol = Protocol::from_buffer(buf, offset)?;
 
-        let connect_flags = buf.get_u8();
-        let keep_alive = buf.get_u16();
+        let connect_flags = buf[*offset];
+        let keep_alive = ((buf[*offset + 1] as u16) << 8) | buf[*offset + 2] as u16;
+        *offset += 3;
 
-        let client_id = read_string(&mut buf)?;
+        let client_id = read_str(buf, offset)?;
 
         let last_will = if connect_flags & 0b100 != 0 {
-            let will_topic = read_string(&mut buf)?;
-            let will_message = read_bytes(&mut buf)?;
-            let will_qod = QoS::from_u8((connect_flags & 0b11000) >> 3).unwrap();
+            let will_topic = read_str(buf, offset)?;
+            let will_message = read_bytes(buf, offset)?;
+            let will_qod = QoS::from_u8((connect_flags & 0b11000) >> 3)?;
             Some(LastWill {
                 topic: will_topic,
                 message: will_message,
@@ -147,13 +156,13 @@ impl<'a, 'b, 'c, 'd> Connect<'a, 'b, 'c, 'd> {
         };
 
         let username = if connect_flags & 0b10000000 != 0 {
-            Some(read_string(&mut buf)?)
+            Some(read_str(buf, offset)?)
         } else {
             None
         };
 
         let password = if connect_flags & 0b01000000 != 0 {
-            Some(read_bytes(&mut buf)?)
+            Some(read_bytes(buf, offset)?)
         } else {
             None
         };
@@ -170,7 +179,8 @@ impl<'a, 'b, 'c, 'd> Connect<'a, 'b, 'c, 'd> {
             clean_session,
         })
     }
-    pub(crate) fn to_buffer(&self, mut buf: impl BufMut) -> Result<usize, Error> {
+
+    pub(crate) fn to_buffer(&self, buf: &mut [u8], offset: &mut usize) -> Result<usize, Error> {
         let header: u8 = 0b00010000;
         let mut length: usize = 6 + 1 + 1; // NOTE: protocol_name(6) + protocol_level(1) + flags(1);
         let mut connect_flags: u8 = 0b00000000;
@@ -179,12 +189,12 @@ impl<'a, 'b, 'c, 'd> Connect<'a, 'b, 'c, 'd> {
         };
         length += 2 + self.client_id.len();
         length += 2; // keep alive
-        if let Some(username) = &self.username {
+        if let Some(username) = self.username {
             connect_flags |= 0b10000000;
             length += username.len();
             length += 2;
         };
-        if let Some(password) = &self.password {
+        if let Some(password) = self.password {
             connect_flags |= 0b01000000;
             length += password.len();
             length += 2;
@@ -199,26 +209,29 @@ impl<'a, 'b, 'c, 'd> Connect<'a, 'b, 'c, 'd> {
             length += last_will.topic.len();
             length += 4;
         };
-        check_remaining(&mut buf, length + 1)?;
+        check_remaining(buf, offset, length + 1)?;
 
         // NOTE: putting data into buffer.
-        buf.put_u8(header);
-        let write_len = write_length(length, &mut buf)? + 1;
-        self.protocol.to_buffer(&mut buf)?;
-        buf.put_u8(connect_flags);
-        buf.put_u16(self.keep_alive);
-        write_string(self.client_id.as_ref(), &mut buf)?;
+        write_u8(buf, offset, header)?;
+
+        let write_len = write_length(buf, offset, length)? + 1;
+        self.protocol.to_buffer(buf, offset)?;
+
+        write_u8(buf, offset, connect_flags)?;
+        write_u16(buf, offset, self.keep_alive)?;
+
+        write_string(buf, offset, self.client_id)?;
 
         if let Some(last_will) = &self.last_will {
-            write_string(last_will.topic.as_ref(), &mut buf)?;
-            write_bytes(&last_will.message, &mut buf)?;
+            write_string(buf, offset, last_will.topic)?;
+            write_bytes(buf, offset, &last_will.message)?;
         };
 
-        if let Some(username) = &self.username {
-            write_string(username.as_ref(), &mut buf)?;
+        if let Some(username) = self.username {
+            write_string(buf, offset, username)?;
         };
-        if let Some(password) = &self.password {
-            write_bytes(password, &mut buf)?;
+        if let Some(password) = self.password {
+            write_bytes(buf, offset, password)?;
         };
         // NOTE: END
         Ok(write_len)
@@ -226,16 +239,17 @@ impl<'a, 'b, 'c, 'd> Connect<'a, 'b, 'c, 'd> {
 }
 
 impl Connack {
-    pub(crate) fn from_buffer(mut buf: impl Buf) -> Result<Self, Error> {
-        let flags = buf.get_u8();
-        let return_code = buf.get_u8();
+    pub(crate) fn from_buffer<'a>(buf: &'a [u8], offset: &mut usize) -> Result<Self, Error> {
+        let flags = buf[*offset];
+        let return_code = buf[*offset + 1];
+        *offset += 2;
         Ok(Connack {
             session_present: (flags & 0b1 == 1),
             code: ConnectReturnCode::from_u8(return_code)?,
         })
     }
-    pub(crate) fn to_buffer(&self, mut buf: impl BufMut) -> Result<usize, Error> {
-        check_remaining(&mut buf, 4)?;
+    pub(crate) fn to_buffer(&self, buf: &mut [u8], offset: &mut usize) -> Result<usize, Error> {
+        check_remaining(buf, offset, 4)?;
         let header: u8 = 0b00100000;
         let length: u8 = 2;
         let mut flags: u8 = 0b00000000;
@@ -243,10 +257,10 @@ impl Connack {
             flags |= 0b1;
         };
         let rc = self.code.to_u8();
-        buf.put_u8(header);
-        buf.put_u8(length);
-        buf.put_u8(flags);
-        buf.put_u8(rc);
+        write_u8(buf, offset, header)?;
+        write_u8(buf, offset, length)?;
+        write_u8(buf, offset, flags)?;
+        write_u8(buf, offset, rc)?;
         Ok(4)
     }
 }

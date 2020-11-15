@@ -1,17 +1,13 @@
-// use alloc::string::String;
-use heapless::{String, consts};
-
-use bytes::{Buf, BufMut};
 use core::{convert::TryFrom, fmt, num::NonZeroU16};
+use crate::encoder::write_u16;
 
 #[cfg(feature = "derive")]
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "std")]
-use alloc::format;
-#[cfg(feature = "std")]
 use std::{
     error::Error as ErrorTrait,
+    format,
     io::{Error as IoError, ErrorKind},
 };
 
@@ -32,7 +28,10 @@ pub enum Error {
     /// Tried to decode a ConnectReturnCode > 5.
     InvalidConnectReturnCode(u8),
     /// Tried to decode an unknown protocol.
-    InvalidProtocol(String<consts::U5>, u8),
+    #[cfg(feature = "std")]
+    InvalidProtocol(std::string::String, u8),
+    #[cfg(not(feature = "std"))]
+    InvalidProtocol(heapless::String<heapless::consts::U10>, u8),
     /// Tried to decode an invalid fixed header (packet type, flags, or remaining_length).
     InvalidHeader,
     /// Trying to encode/decode an invalid length.
@@ -47,7 +46,7 @@ pub enum Error {
     /// Note: Only available when std is available.
     /// You'll hopefully never see this.
     #[cfg(feature = "std")]
-    IoError(ErrorKind, String<consts::U1>),
+    IoError(ErrorKind, std::string::String),
 }
 
 #[cfg(feature = "std")]
@@ -115,24 +114,32 @@ impl Pid {
     pub fn new() -> Self {
         Pid(NonZeroU16::new(1).unwrap())
     }
+
     /// Get the `Pid` as a raw `u16`.
     pub fn get(self) -> u16 {
         self.0.get()
     }
-    pub(crate) fn from_buffer(mut buf: impl Buf) -> Result<Self, Error> {
-        Self::try_from(buf.get_u16())
+
+    pub(crate) fn from_buffer<'a>(buf: &'a [u8], offset: &mut usize) -> Result<Self, Error> {
+        let pid = ((buf[*offset] as u16) << 8) | buf[*offset + 1] as u16;
+        *offset += 2;
+        Self::try_from(pid)
     }
-    pub(crate) fn to_buffer(self, mut buf: impl BufMut) -> Result<(), Error> {
-        Ok(buf.put_u16(self.get()))
+
+    pub(crate) fn to_buffer(self, buf: &mut [u8], offset: &mut usize) -> Result<(), Error> {
+        write_u16(buf, offset, self.get())
     }
 }
+
 impl Default for Pid {
     fn default() -> Pid {
         Pid::new()
     }
 }
+
 impl core::ops::Add<u16> for Pid {
     type Output = Pid;
+
     /// Adding a `u16` to a `Pid` will wrap around and avoid 0.
     fn add(self, u: u16) -> Pid {
         let n = match self.get().overflowing_add(u) {
@@ -142,8 +149,10 @@ impl core::ops::Add<u16> for Pid {
         Pid(NonZeroU16::new(n).unwrap())
     }
 }
+
 impl core::ops::Sub<u16> for Pid {
     type Output = Pid;
+
     /// Adding a `u16` to a `Pid` will wrap around and avoid 0.
     fn sub(self, u: u16) -> Pid {
         let n = match self.get().overflowing_sub(u) {
@@ -154,14 +163,17 @@ impl core::ops::Sub<u16> for Pid {
         Pid(NonZeroU16::new(n).unwrap())
     }
 }
+
 impl From<Pid> for u16 {
     /// Convert `Pid` to `u16`.
     fn from(p: Pid) -> Self {
         p.0.get()
     }
 }
+
 impl TryFrom<u16> for Pid {
     type Error = Error;
+
     /// Convert `u16` to `Pid`. Will fail for value 0.
     fn try_from(u: u16) -> Result<Self, Error> {
         match NonZeroU16::new(u) {
@@ -184,6 +196,7 @@ pub enum QoS {
     /// `QoS 2`. Two acks needed.
     ExactlyOnce,
 }
+
 impl QoS {
     pub(crate) fn to_u8(&self) -> u8 {
         match *self {
@@ -192,6 +205,7 @@ impl QoS {
             QoS::ExactlyOnce => 2,
         }
     }
+
     pub(crate) fn from_u8(byte: u8) -> Result<QoS, Error> {
         match byte {
             0 => Ok(QoS::AtMostOnce),
@@ -216,6 +230,7 @@ pub enum QosPid {
     AtLeastOnce(Pid),
     ExactlyOnce(Pid),
 }
+
 impl QosPid {
     #[cfg(test)]
     pub(crate) fn from_u8u16(qos: u8, pid: u16) -> Self {
@@ -226,6 +241,7 @@ impl QosPid {
             _ => panic!("Qos > 2"),
         }
     }
+
     /// Extract the [`Pid`] from a `QosPid`, if any.
     ///
     /// [`Pid`]: struct.Pid.html
@@ -236,6 +252,7 @@ impl QosPid {
             QosPid::ExactlyOnce(p) => Some(p),
         }
     }
+
     /// Extract the [`QoS`] from a `QosPid`.
     ///
     /// [`QoS`]: enum.QoS.html
@@ -251,9 +268,8 @@ impl QosPid {
 #[cfg(test)]
 mod test {
     use crate::Pid;
-    use alloc::vec;
-    use alloc::vec::Vec;
     use core::convert::TryFrom;
+    use std::vec;
 
     #[test]
     fn pid_add_sub() {
