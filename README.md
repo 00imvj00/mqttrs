@@ -3,7 +3,7 @@
 `Mqttrs` is a [Rust](https://www.rust-lang.org/) crate (library) to write [MQTT
 protocol](https://mqtt.org/) clients and servers.
 
-It is a codec-only library with [very few dependencies](Cargo.toml) and a [straightworward and
+It is a codec-only library with [very few dependencies](Cargo.toml) and a [straightforward and
 composable API](https://docs.rs/mqttrs/*/mqttrs/), usable with rust's standard library or with async
 frameworks like [tokio](https://tokio.rs/). It is strict when decoding (e.g. returns an error when
 encountering reserved values) and encoding (the API makes it impossible to generate an illegal

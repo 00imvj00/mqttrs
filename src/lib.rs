@@ -12,7 +12,7 @@
 //! use bytes::BytesMut;
 //!
 //! // Allocate buffer.
-//! let mut buf = BytesMut::with_capacity(1024);
+//! let mut buf = [0u8; 1024];
 //!
 //! // Encode an MQTT Connect packet.
 //! let pkt = Packet::Connect(Connect { protocol: Protocol::MQTT311,
@@ -22,15 +22,15 @@
 //!                                     last_will: None,
 //!                                     username: None,
 //!                                     password: None });
-//! assert!(encode(&pkt, &mut buf).is_ok());
-//! assert_eq!(&buf[14..], b"doc_client");
+//! let len = encode_slice(&pkt, &mut buf).unwrap();
+//! assert_eq!(&buf[14..len], b"doc_client");
 //! let mut encoded = buf.clone();
 //!
 //! // Decode one packet. The buffer will advance to the next packet.
 //! assert_eq!(Ok(Some(pkt)), decode_slice(&mut buf));
 //!
 //! // Example decode failures.
-//! let mut incomplete = encoded.split_to(10);
+//! let mut incomplete = encoded.split_at(10).0;
 //! assert_eq!(Ok(None), decode_slice(&mut incomplete));
 //! let mut garbage = BytesMut::from(&[0u8,0,0,0] as &[u8]);
 //! assert_eq!(Err(Error::InvalidHeader), decode_slice(&mut garbage));
@@ -40,7 +40,7 @@
 //! [MQTT 5]: https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html
 //! [tokio]: https://tokio.rs/
 //! [Packet]: enum.Packet.html
-//! [encode()]: fn.encode.html
+//! [encode_slice()]: fn.encode_slice.html
 //! [decode_slice()]: fn.decode_slice.html
 //! [bytes::BytesMut]: https://docs.rs/bytes/0.5.3/bytes/struct.BytesMut.html
 

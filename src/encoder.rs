@@ -15,11 +15,11 @@ use crate::{Error, Packet};
 /// }.into();
 ///
 /// // Allocate buffer (should be appropriately-sized or able to grow as needed).
-/// let mut buf = BytesMut::with_capacity(1024);
+/// let mut buf = [0u8; 1024];
 ///
 /// // Write bytes corresponding to `&Packet` into the `BytesMut`.
-/// encode(&packet, &mut buf).expect("failed encoding");
-/// assert_eq!(&*buf, &[0b00110000, 11,
+/// let len = encode_slice(&packet, &mut buf).expect("failed encoding");
+/// assert_eq!(&buf[..len], &[0b00110000, 11,
 ///                     0, 4, 't' as u8, 'e' as u8, 's' as u8, 't' as u8,
 ///                    'h' as u8, 'e' as u8, 'l' as u8, 'l' as u8, 'o' as u8]);
 /// ```
@@ -27,7 +27,7 @@ use crate::{Error, Packet};
 /// [Packet]: ../enum.Packet.html
 /// [BufMut]: https://docs.rs/bytes/0.5.3/bytes/trait.BufMut.html
 // #[cfg(feature = "std")]
-// pub fn encode(packet: &Packet, buf: impl BufMut) -> Result<usize, Error> {
+// pub fn encode_slice(packet: &Packet, buf: impl BufMut) -> Result<usize, Error> {
 //     let mut offset = 0;
 //     encode_slice(packet, buf.bytes_mut(), &mut offset)
 // }
