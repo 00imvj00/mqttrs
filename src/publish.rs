@@ -1,27 +1,35 @@
 use crate::{decoder::*, encoder::*, *};
-use alloc::{string::String, vec::Vec};
-use bytes::{BufMut, BytesMut};
+
+// use alloc::{string::String, vec::Vec};
+use heapless::{String, Vec, consts};
+
 
 /// Publish packet ([MQTT 3.3]).
 ///
 /// [MQTT 3.3]: http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718037
 #[derive(Debug, Clone, PartialEq)]
-pub struct Publish {
+pub struct Publish<'a> {
     pub dup: bool,
     pub qospid: QosPid,
     pub retain: bool,
-    pub topic_name: String,
-    pub payload: Vec<u8>,
+    pub topic_name: &'a str,
+    pub payload: &'a [u8],
 }
 
-impl Publish {
-    pub(crate) fn from_buffer(header: &Header, buf: &mut BytesMut) -> Result<Self, Error> {
-        let topic_name = read_string(buf)?;
+impl<'a> Publish<'a> {
+    pub(crate) fn from_buffer(
+        header: &Header,
+        remaining_len: usize,
+        buf: &'a [u8],
+        offset: &mut usize,
+    ) -> Result<Self, Error> {
+        let payload_end = *offset + remaining_len;
+        let topic_name = read_str(buf, offset)?;
 
         let qospid = match header.qos {
             QoS::AtMostOnce => QosPid::AtMostOnce,
-            QoS::AtLeastOnce => QosPid::AtLeastOnce(Pid::from_buffer(buf)?),
-            QoS::ExactlyOnce => QosPid::ExactlyOnce(Pid::from_buffer(buf)?),
+            QoS::AtLeastOnce => QosPid::AtLeastOnce(Pid::from_buffer(buf, offset)?),
+            QoS::ExactlyOnce => QosPid::ExactlyOnce(Pid::from_buffer(buf, offset)?),
         };
 
         Ok(Publish {
@@ -29,10 +37,10 @@ impl Publish {
             qospid,
             retain: header.retain,
             topic_name,
-            payload: buf.to_vec(),
+            payload: &buf[*offset..payload_end],
         })
     }
-    pub(crate) fn to_buffer(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
+    pub(crate) fn to_buffer(&self, buf: &mut [u8], offset: &mut usize) -> Result<usize, Error> {
         // Header
         let mut header: u8 = match self.qospid {
             QosPid::AtMostOnce => 0b00110000,
@@ -45,8 +53,8 @@ impl Publish {
         if self.retain {
             header |= 0b00000001 as u8;
         };
-        check_remaining(buf, 1)?;
-        buf.put_u8(header);
+        check_remaining(buf, offset, 1)?;
+        write_u8(buf, offset, header)?;
 
         // Length: topic (2+len) + pid (0/2) + payload (len)
         let length = self.topic_name.len()
@@ -56,20 +64,22 @@ impl Publish {
             }
             + self.payload.len();
 
-        let write_len = write_length(length, buf)? + 1;
+        let write_len = write_length(buf, offset, length)? + 1;
 
         // Topic
-        write_string(self.topic_name.as_ref(), buf)?;
+        write_string(buf, offset, self.topic_name)?;
 
         // Pid
         match self.qospid {
             QosPid::AtMostOnce => (),
-            QosPid::AtLeastOnce(pid) => pid.to_buffer(buf)?,
-            QosPid::ExactlyOnce(pid) => pid.to_buffer(buf)?,
+            QosPid::AtLeastOnce(pid) => pid.to_buffer(buf, offset)?,
+            QosPid::ExactlyOnce(pid) => pid.to_buffer(buf, offset)?,
         }
 
         // Payload
-        buf.put_slice(self.payload.as_slice());
+        for &byte in self.payload {
+            write_u8(buf, offset, byte)?;
+        }
 
         Ok(write_len)
     }

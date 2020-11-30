@@ -1,6 +1,8 @@
 use crate::*;
-use alloc::{string::String, vec::Vec};
-use bytes::{Buf, BytesMut};
+
+// use alloc::{string::String, vec::Vec};
+use heapless::{String, Vec, ArrayLength};
+
 
 /// Decode bytes from a [BytesMut] buffer as a [Packet] enum.
 ///
@@ -16,9 +18,9 @@ use bytes::{Buf, BytesMut};
 ///                                'h' as u8, 'e' as u8, 'l' as u8, 'l' as u8, 'o' as u8] as &[u8]);
 ///
 /// // Parse the bytes and check the result.
-/// match decode(&mut buf) {
+/// match decode_slice(&mut buf) {
 ///     Ok(Some(Packet::Publish(p))) => {
-///         assert_eq!(p.payload, "hello".as_bytes().to_vec());
+///         assert_eq!(p.payload, b"hello");
 ///     },
 ///     // In real code you probably don't want to panic like that ;)
 ///     Ok(None) => panic!("not enough data"),
@@ -28,51 +30,87 @@ use bytes::{Buf, BytesMut};
 ///
 /// [Packet]: ../enum.Packet.html
 /// [BytesMut]: https://docs.rs/bytes/0.5.3/bytes/struct.BytesMut.html
-pub fn decode(buf: &mut BytesMut) -> Result<Option<Packet>, Error> {
-    if let Some((header, remaining_len)) = read_header(buf)? {
-        // Advance the buffer position to the next packet, and parse the current packet
-        Ok(Some(read_packet(header, &mut buf.split_to(remaining_len))?))
+
+pub fn clone_packet(input: &[u8], output: &mut [u8]) -> Result<usize, Error> {
+    if input.is_empty() {
+        return Ok(0);
+    }
+
+    let mut offset = 0;
+    // while Header::new(input[offset]).is_err() {
+    //     offset += 1;
+    //     if input[offset..].is_empty() {
+    //         return Ok(0);
+    //     }
+    // }
+
+    let start = offset;
+    if let Some((_, remaining_len)) = read_header(input, &mut offset)? {
+        let end = offset + remaining_len;
+        let len = end - start;
+        output[..len].copy_from_slice(&input[start..end]);
+        Ok(len)
+    } else {
+        // Don't have a full packet
+        Ok(0)
+    }
+}
+
+pub fn decode_slice<'a>(buf: &'a [u8]) -> Result<Option<Packet<'a>>, Error> {
+    let mut offset = 0;
+    if let Some((header, remaining_len)) = read_header(buf, &mut offset)? {
+        let r = read_packet(header, remaining_len, buf, &mut offset)?;
+        Ok(Some(r))
     } else {
         // Don't have a full packet
         Ok(None)
     }
 }
 
-fn read_packet(header: Header, buf: &mut BytesMut) -> Result<Packet, Error> {
+fn read_packet<'a>(
+    header: Header,
+    remaining_len: usize,
+    buf: &'a [u8],
+    offset: &mut usize,
+) -> Result<Packet<'a>, Error> {
     Ok(match header.typ {
         PacketType::Pingreq => Packet::Pingreq,
         PacketType::Pingresp => Packet::Pingresp,
         PacketType::Disconnect => Packet::Disconnect,
-        PacketType::Connect => Connect::from_buffer(buf)?.into(),
-        PacketType::Connack => Connack::from_buffer(buf)?.into(),
-        PacketType::Publish => Publish::from_buffer(&header, buf)?.into(),
-        PacketType::Puback => Packet::Puback(Pid::from_buffer(buf)?),
-        PacketType::Pubrec => Packet::Pubrec(Pid::from_buffer(buf)?),
-        PacketType::Pubrel => Packet::Pubrel(Pid::from_buffer(buf)?),
-        PacketType::Pubcomp => Packet::Pubcomp(Pid::from_buffer(buf)?),
-        PacketType::Subscribe => Subscribe::from_buffer(buf)?.into(),
-        PacketType::Suback => Suback::from_buffer(buf)?.into(),
-        PacketType::Unsubscribe => Unsubscribe::from_buffer(buf)?.into(),
-        PacketType::Unsuback => Packet::Unsuback(Pid::from_buffer(buf)?),
+        PacketType::Connect => Connect::from_buffer(buf, offset)?.into(),
+        PacketType::Connack => Connack::from_buffer(buf, offset)?.into(),
+        PacketType::Publish => Publish::from_buffer(&header, remaining_len, buf, offset)?.into(),
+        PacketType::Puback => Packet::Puback(Pid::from_buffer(buf, offset)?),
+        PacketType::Pubrec => Packet::Pubrec(Pid::from_buffer(buf, offset)?),
+        PacketType::Pubrel => Packet::Pubrel(Pid::from_buffer(buf, offset)?),
+        PacketType::Pubcomp => Packet::Pubcomp(Pid::from_buffer(buf, offset)?),
+        PacketType::Subscribe => Subscribe::from_buffer(remaining_len, buf, offset)?.into(),
+        PacketType::Suback => Suback::from_buffer(remaining_len, buf, offset)?.into(),
+        PacketType::Unsubscribe => Unsubscribe::from_buffer(remaining_len, buf, offset)?.into(),
+        PacketType::Unsuback => Packet::Unsuback(Pid::from_buffer(buf, offset)?),
     })
 }
 
 /// Read the parsed header and remaining_len from the buffer. Only return Some() and advance the
 /// buffer position if there is enough data in the buffer to read the full packet.
-fn read_header(buf: &mut BytesMut) -> Result<Option<(Header, usize)>, Error> {
+pub(crate) fn read_header<'a>(
+    buf: &'a [u8],
+    offset: &mut usize,
+) -> Result<Option<(Header, usize)>, Error> {
     let mut len: usize = 0;
     for pos in 0..=3 {
-        if let Some(&byte) = buf.get(pos + 1) {
+        if buf.len() > *offset + pos + 1 {
+            let byte = buf[*offset + pos + 1];
             len += (byte as usize & 0x7F) << (pos * 7);
             if (byte & 0x80) == 0 {
                 // Continuation bit == 0, length is parsed
-                if buf.remaining() < 2 + pos + len {
+                if buf.len() < *offset + 2 + pos + len {
                     // Won't be able to read full packet
                     return Ok(None);
                 }
                 // Parse header byte, skip past the header, and return
-                let header = Header::new(buf.get_u8())?;
-                buf.advance(pos + 1);
+                let header = Header::new(buf[*offset])?;
+                *offset += pos + 2;
                 return Ok(Some((header, len)));
             }
         } else {
@@ -122,127 +160,21 @@ impl Header {
     }
 }
 
-pub(crate) fn read_string(buf: &mut BytesMut) -> Result<String, Error> {
-    String::from_utf8(read_bytes(buf)?).map_err(|e| Error::InvalidString(e.utf8_error()))
+pub(crate) fn read_str<'a>(buf: &'a [u8], offset: &mut usize) -> Result<&'a str, Error> {
+    core::str::from_utf8(read_bytes(buf, offset)?).map_err(|e| Error::InvalidString(e))
 }
 
-pub(crate) fn read_bytes(buf: &mut BytesMut) -> Result<Vec<u8>, Error> {
-    let len = buf.get_u16() as usize;
-    if len > buf.remaining() {
+pub(crate) fn read_bytes<'a>(buf: &'a [u8], offset: &mut usize) -> Result<&'a [u8], Error> {
+    if buf[*offset..].len() < 2 {
+        return Err(Error::InvalidLength);
+    }
+    let len = ((buf[*offset] as usize) << 8) | buf[*offset + 1] as usize;
+    *offset += 2;
+    if len > buf[*offset..].len() {
         Err(Error::InvalidLength)
     } else {
-        Ok(buf.split_to(len).to_vec())
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use crate::decoder::*;
-    use alloc::vec;
-
-    macro_rules! header {
-        ($t:ident, $d:expr, $q:ident, $r:expr) => {
-            Header {
-                typ: PacketType::$t,
-                dup: $d,
-                qos: QoS::$q,
-                retain: $r,
-            }
-        };
-    }
-
-    fn bm(d: &[u8]) -> BytesMut {
-        BytesMut::from(d)
-    }
-
-    /// Test all possible header first byte, using remaining_len=0.
-    #[test]
-    fn header_firstbyte() {
-        let valid = vec![
-            (0b0001_0000, header!(Connect, false, AtMostOnce, false)),
-            (0b0010_0000, header!(Connack, false, AtMostOnce, false)),
-            (0b0011_0000, header!(Publish, false, AtMostOnce, false)),
-            (0b0011_0001, header!(Publish, false, AtMostOnce, true)),
-            (0b0011_0010, header!(Publish, false, AtLeastOnce, false)),
-            (0b0011_0011, header!(Publish, false, AtLeastOnce, true)),
-            (0b0011_0100, header!(Publish, false, ExactlyOnce, false)),
-            (0b0011_0101, header!(Publish, false, ExactlyOnce, true)),
-            (0b0011_1000, header!(Publish, true, AtMostOnce, false)),
-            (0b0011_1001, header!(Publish, true, AtMostOnce, true)),
-            (0b0011_1010, header!(Publish, true, AtLeastOnce, false)),
-            (0b0011_1011, header!(Publish, true, AtLeastOnce, true)),
-            (0b0011_1100, header!(Publish, true, ExactlyOnce, false)),
-            (0b0011_1101, header!(Publish, true, ExactlyOnce, true)),
-            (0b0100_0000, header!(Puback, false, AtMostOnce, false)),
-            (0b0101_0000, header!(Pubrec, false, AtMostOnce, false)),
-            (0b0110_0010, header!(Pubrel, false, AtLeastOnce, false)),
-            (0b0111_0000, header!(Pubcomp, false, AtMostOnce, false)),
-            (0b1000_0010, header!(Subscribe, false, AtLeastOnce, false)),
-            (0b1001_0000, header!(Suback, false, AtMostOnce, false)),
-            (0b1010_0010, header!(Unsubscribe, false, AtLeastOnce, false)),
-            (0b1011_0000, header!(Unsuback, false, AtMostOnce, false)),
-            (0b1100_0000, header!(Pingreq, false, AtMostOnce, false)),
-            (0b1101_0000, header!(Pingresp, false, AtMostOnce, false)),
-            (0b1110_0000, header!(Disconnect, false, AtMostOnce, false)),
-        ];
-        for n in 0..=255 {
-            let res = match valid.iter().find(|(byte, _)| *byte == n) {
-                Some((_, header)) => Ok(Some((*header, 0))),
-                None if ((n & 0b110) == 0b110) && (n >> 4 == 3) => Err(Error::InvalidQos(3)),
-                None => Err(Error::InvalidHeader),
-            };
-            let mut buf = bm(&[n, 0]);
-            assert_eq!(res, read_header(&mut buf), "{:08b}", n);
-        }
-    }
-
-    /// Test decoding of length and actual buffer len.
-    #[rustfmt::skip]
-    #[test]
-    fn header_len() {
-        let h = header!(Connect, false, AtMostOnce, false);
-        for (res, mut bytes, buflen) in vec![
-            (Ok(Some((h, 0))),          vec![1 << 4, 0],   2),
-            (Ok(None),                  vec![1 << 4, 127], 128),
-            (Ok(Some((h, 127))),        vec![1 << 4, 127], 129),
-            (Ok(None),                  vec![1 << 4, 0x80], 2),
-            (Ok(Some((h, 0))),          vec![1 << 4, 0x80, 0], 3), //Weird encoding for "0" buf matches spec
-            (Ok(Some((h, 128))),        vec![1 << 4, 0x80, 1], 131),
-            (Ok(None),                  vec![1 << 4, 0x80+16, 78], 10002),
-            (Ok(Some((h, 10000))),      vec![1 << 4, 0x80+16, 78], 10003),
-            (Err(Error::InvalidHeader), vec![1 << 4, 0x80, 0x80, 0x80, 0x80], 10),
-        ] {
-            bytes.resize(buflen, 0);
-            let mut buf = bm(bytes.as_slice());
-            assert_eq!(res, read_header(&mut buf));
-        }
-    }
-
-    #[test]
-    fn non_utf8_string() {
-        let mut data = bm(&[
-            0b00110000, 10, // type=Publish, remaining_len=10
-            0x00, 0x03, 'a' as u8, '/' as u8, 0xc0 as u8, // Topic with Invalid utf8
-            'h' as u8, 'e' as u8, 'l' as u8, 'l' as u8, 'o' as u8, // payload
-        ]);
-        assert!(match decode(&mut data) {
-            Err(Error::InvalidString(_)) => true,
-            _ => false,
-        });
-    }
-
-    /// Validity of remaining_len is tested exhaustively elsewhere, this is for inner lengths, which
-    /// are rarer.
-    #[test]
-    fn inner_length_too_long() {
-        let mut data = bm(&[
-            0b00010000, 20, // Connect packet, remaining_len=20
-            0x00, 0x04, 'M' as u8, 'Q' as u8, 'T' as u8, 'T' as u8, 0x04,
-            0b01000000, // +password
-            0x00, 0x0a, // keepalive 10 sec
-            0x00, 0x04, 't' as u8, 'e' as u8, 's' as u8, 't' as u8, // client_id
-            0x00, 0x03, 'm' as u8, 'q' as u8, // password with invalid length
-        ]);
-        assert_eq!(Err(Error::InvalidLength), decode(&mut data));
+        let bytes = &buf[*offset..*offset + len];
+        *offset += len;
+        Ok(bytes)
     }
 }

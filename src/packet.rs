@@ -2,7 +2,7 @@ use crate::*;
 
 /// Base enum for all MQTT packet types.
 ///
-/// This is the main type you'll be interacting with, as an output of [`decode()`] and an input of
+/// This is the main type you'll be interacting with, as an output of [`decode_slice()`] and an input of
 /// [`encode()`]. Most variants can be constructed directly without using methods.
 ///
 /// ```
@@ -15,23 +15,23 @@ use crate::*;
 /// let publish = Publish { dup: false,
 ///                         qospid: QosPid::AtMostOnce,
 ///                         retain: false,
-///                         topic_name: "to/pic".into(),
-///                         payload: "payload".into() };
+///                         topic_name: "to/pic",
+///                         payload: b"payload" };
 /// let pkt: Packet = publish.into();
 /// // Identifyer-only packets
 /// let pkt = Packet::Puback(Pid::try_from(42).unwrap());
 /// ```
 ///
 /// [`encode()`]: fn.encode.html
-/// [`decode()`]: fn.decode.html
+/// [`decode_slice()`]: fn.decode_slice.html
 #[derive(Debug, Clone, PartialEq)]
-pub enum Packet {
+pub enum Packet<'a> {
     /// [MQTT 3.1](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718028)
-    Connect(Connect),
+    Connect(Connect<'a>),
     /// [MQTT 3.2](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718033)
     Connack(Connack),
     /// [MQTT 3.3](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718037)
-    Publish(Publish),
+    Publish(Publish<'a>),
     /// [MQTT 3.4](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718043)
     Puback(Pid),
     /// [MQTT 3.5](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718048)
@@ -55,7 +55,7 @@ pub enum Packet {
     /// [MQTT 3.14](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718090)
     Disconnect,
 }
-impl Packet {
+impl<'a> Packet<'a> {
     /// Return the packet type variant.
     ///
     /// This can be used for matching, categorising, debuging, etc. Most users will match directly
@@ -79,10 +79,22 @@ impl Packet {
         }
     }
 }
+
+macro_rules! packet_from_borrowed {
+    ($($t:ident),+) => {
+        $(
+            impl<'a> From<$t<'a>> for Packet<'a> {
+                fn from(p: $t<'a>) -> Self {
+                    Packet::$t(p)
+                }
+            }
+        )+
+    }
+}
 macro_rules! packet_from {
     ($($t:ident),+) => {
         $(
-            impl From<$t> for Packet {
+            impl<'a> From<$t> for Packet<'a> {
                 fn from(p: $t) -> Self {
                     Packet::$t(p)
                 }
@@ -90,7 +102,9 @@ macro_rules! packet_from {
         )+
     }
 }
-packet_from!(Connect, Connack, Publish, Subscribe, Suback, Unsubscribe);
+
+packet_from_borrowed!(Connect, Publish);
+packet_from!(Suback, Connack, Subscribe, Unsubscribe);
 
 /// Packet type variant, without the associated data.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
