@@ -16,7 +16,7 @@ packet).
 
 ## Usage
 
-Add `mqttrs = "0.3"` and `bytes = "0.5"` to your `Cargo.toml`.
+Add `mqttrs = "0.4"` and `bytes = "0.5"` to your `Cargo.toml`.
 
 ```rust
 use mqttrs::*;
@@ -49,7 +49,7 @@ assert_eq!(Err(Error::InvalidHeader), decode(&mut garbage));
 
 ## Optional [serde](https://serde.rs/) support.
 
-Use  `mqttrs = { version = "0.3", features = [ "derive" ] }` in your `Cargo.toml`.
+Use  `mqttrs = { version = "0.4", features = [ "derive" ] }` in your `Cargo.toml`.
 
 Enabling this features adds `#[derive(Deserialize, Serialize)]` to some `mqttrs` types. This
 simplifies storing those structs in a database or file, typically to implement session support (qos,
@@ -60,7 +60,7 @@ functions.
 
 ## Optional `#[no_std]` support.
 
-Use `mqttrs = { version = "0.3", default-features = false }` in your `Cargo.toml` to remove the
+Use `mqttrs = { version = "0.4", default-features = false }` in your `Cargo.toml` to remove the
 default `std` feature.
 
 Disabling this feature comes with the cost of not implementing the `std::error::Error` trait,
