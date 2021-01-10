@@ -16,7 +16,7 @@ packet).
 
 ## Usage
 
-Add `mqttrs = "0.4"` and `bytes = "0.5"` to your `Cargo.toml`.
+Add `mqttrs = "0.4"` and `bytes = "1.0"` to your `Cargo.toml`.
 
 ```rust
 use mqttrs::*;

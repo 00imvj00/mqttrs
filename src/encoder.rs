@@ -25,7 +25,7 @@ use crate::{Error, Packet};
 /// ```
 ///
 /// [Packet]: ../enum.Packet.html
-/// [BufMut]: https://docs.rs/bytes/0.5.3/bytes/trait.BufMut.html
+/// [BufMut]: https://docs.rs/bytes/1.0.0/bytes/trait.BufMut.html
 // #[cfg(feature = "std")]
 // pub fn encode_slice(packet: &Packet, buf: impl BufMut) -> Result<usize, Error> {
 //     let mut offset = 0;
@@ -159,7 +159,6 @@ pub(crate) fn write_length(buf: &mut [u8], offset: &mut usize, len: usize) -> Re
     Ok(write_len)
 }
 
-
 pub(crate) fn write_u8(buf: &mut [u8], offset: &mut usize, val: u8) -> Result<(), Error> {
     buf[*offset] = val;
     *offset += 1;
@@ -181,5 +180,5 @@ pub(crate) fn write_bytes(buf: &mut [u8], offset: &mut usize, bytes: &[u8]) -> R
 }
 
 pub(crate) fn write_string(buf: &mut [u8], offset: &mut usize, string: &str) -> Result<(), Error> {
-    write_bytes(buf, offset, string.as_bytes(), )
+    write_bytes(buf, offset, string.as_bytes())
 }
