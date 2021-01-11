@@ -1,8 +1,7 @@
 use crate::*;
 
 // use alloc::{string::String, vec::Vec};
-use heapless::{String, Vec, ArrayLength};
-
+use heapless::{ArrayLength, String, Vec};
 
 /// Decode bytes from a [BytesMut] buffer as a [Packet] enum.
 ///
@@ -29,7 +28,7 @@ use heapless::{String, Vec, ArrayLength};
 /// ```
 ///
 /// [Packet]: ../enum.Packet.html
-/// [BytesMut]: https://docs.rs/bytes/0.5.3/bytes/struct.BytesMut.html
+/// [BytesMut]: https://docs.rs/bytes/1.0.0/bytes/struct.BytesMut.html
 
 pub fn clone_packet(input: &[u8], output: &mut [u8]) -> Result<usize, Error> {
     if input.is_empty() {

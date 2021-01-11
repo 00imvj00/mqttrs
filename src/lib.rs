@@ -42,7 +42,7 @@
 //! [Packet]: enum.Packet.html
 //! [encode_slice()]: fn.encode_slice.html
 //! [decode_slice()]: fn.decode_slice.html
-//! [bytes::BytesMut]: https://docs.rs/bytes/0.5.3/bytes/struct.BytesMut.html
+//! [bytes::BytesMut]: https://docs.rs/bytes/1.0.0/bytes/struct.BytesMut.html
 
 #![cfg_attr(not(test), no_std)]
 
