@@ -1,82 +1,11 @@
-use core::{convert::TryFrom, fmt, num::NonZeroU16};
-use crate::encoder::write_u16;
-
 #[cfg(feature = "derive")]
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "std")]
-use std::{
-    error::Error as ErrorTrait,
-    format,
-    io::{Error as IoError, ErrorKind},
-};
+use crate::errors::Error;
 
-/// Errors returned by [`encode()`] and [`decode()`].
-///
-/// [`encode()`]: fn.encode.html
-/// [`decode()`]: fn.decode.html
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Error {
-    /// Not enough space in the write buffer.
-    ///
-    /// It is the caller's responsiblity to pass a big enough buffer to `encode()`.
-    WriteZero,
-    /// Tried to encode or decode a ProcessIdentifier==0.
-    InvalidPid,
-    /// Tried to decode a QoS > 2.
-    InvalidQos(u8),
-    /// Tried to decode a ConnectReturnCode > 5.
-    InvalidConnectReturnCode(u8),
-    /// Tried to decode an unknown protocol.
-    #[cfg(feature = "std")]
-    InvalidProtocol(std::string::String, u8),
-    #[cfg(not(feature = "std"))]
-    InvalidProtocol(heapless::String<heapless::consts::U10>, u8),
-    /// Tried to decode an invalid fixed header (packet type, flags, or remaining_length).
-    InvalidHeader,
-    /// Trying to encode/decode an invalid length.
-    ///
-    /// The difference with `WriteZero`/`UnexpectedEof` is that it refers to an invalid/corrupt
-    /// length rather than a buffer size issue.
-    InvalidLength,
-    /// Trying to decode a non-utf8 string.
-    InvalidString(core::str::Utf8Error),
-    /// Catch-all error when converting from `std::io::Error`.
-    ///
-    /// Note: Only available when std is available.
-    /// You'll hopefully never see this.
-    #[cfg(feature = "std")]
-    IoError(ErrorKind, std::string::String),
-}
-
-#[cfg(feature = "std")]
-impl ErrorTrait for Error {}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
-
-#[cfg(feature = "std")]
-impl From<Error> for IoError {
-    fn from(err: Error) -> IoError {
-        match err {
-            Error::WriteZero => IoError::new(ErrorKind::WriteZero, err),
-            _ => IoError::new(ErrorKind::InvalidData, err),
-        }
-    }
-}
-
-#[cfg(feature = "std")]
-impl From<IoError> for Error {
-    fn from(err: IoError) -> Error {
-        match err.kind() {
-            ErrorKind::WriteZero => Error::WriteZero,
-            k => Error::IoError(k, format!("{}", err)),
-        }
-    }
-}
+use core::num::NonZeroU16;
+use std::convert::TryFrom;
 
 /// Packet Identifier.
 ///
@@ -120,7 +49,7 @@ impl Pid {
         self.0.get()
     }
 
-    pub(crate) fn from_buffer<'a>(buf: &'a [u8], offset: &mut usize) -> Result<Self, Error> {
+    pub(crate) fn from_buffer(buf: &[u8], offset: &mut usize) -> Result<Self, Error> {
         let pid = ((buf[*offset] as u16) << 8) | buf[*offset + 1] as u16;
         *offset += 2;
         Self::try_from(pid)
@@ -183,86 +112,28 @@ impl TryFrom<u16> for Pid {
     }
 }
 
-/// Packet delivery [Quality of Service] level.
-///
-/// [Quality of Service]: http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718099
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "derive", derive(Serialize, Deserialize))]
-pub enum QoS {
-    /// `QoS 0`. No ack needed.
-    AtMostOnce,
-    /// `QoS 1`. One ack needed.
-    AtLeastOnce,
-    /// `QoS 2`. Two acks needed.
-    ExactlyOnce,
+pub(crate) fn write_u8(buf: &mut [u8], offset: &mut usize, val: u8) -> Result<(), Error> {
+    buf[*offset] = val;
+    *offset += 1;
+    Ok(())
 }
 
-impl QoS {
-    pub(crate) fn to_u8(&self) -> u8 {
-        match *self {
-            QoS::AtMostOnce => 0,
-            QoS::AtLeastOnce => 1,
-            QoS::ExactlyOnce => 2,
-        }
-    }
-
-    pub(crate) fn from_u8(byte: u8) -> Result<QoS, Error> {
-        match byte {
-            0 => Ok(QoS::AtMostOnce),
-            1 => Ok(QoS::AtLeastOnce),
-            2 => Ok(QoS::ExactlyOnce),
-            n => Err(Error::InvalidQos(n)),
-        }
-    }
+pub(crate) fn write_u16(buf: &mut [u8], offset: &mut usize, val: u16) -> Result<(), Error> {
+    write_u8(buf, offset, (val >> 8) as u8)?;
+    write_u8(buf, offset, (val & 0xFF) as u8)
 }
 
-/// Combined [`QoS`]/[`Pid`].
-///
-/// Used only in [`Publish`] packets.
-///
-/// [`Publish`]: struct.Publish.html
-/// [`QoS`]: enum.QoS.html
-/// [`Pid`]: struct.Pid.html
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "derive", derive(Serialize, Deserialize))]
-pub enum QosPid {
-    AtMostOnce,
-    AtLeastOnce(Pid),
-    ExactlyOnce(Pid),
+pub(crate) fn write_bytes(buf: &mut [u8], offset: &mut usize, bytes: &[u8]) -> Result<(), Error> {
+    write_u16(buf, offset, bytes.len() as u16)?;
+
+    for &byte in bytes {
+        write_u8(buf, offset, byte)?;
+    }
+    Ok(())
 }
 
-impl QosPid {
-    #[cfg(test)]
-    pub(crate) fn from_u8u16(qos: u8, pid: u16) -> Self {
-        match qos {
-            0 => QosPid::AtMostOnce,
-            1 => QosPid::AtLeastOnce(Pid::try_from(pid).expect("pid == 0")),
-            2 => QosPid::ExactlyOnce(Pid::try_from(pid).expect("pid == 0")),
-            _ => panic!("Qos > 2"),
-        }
-    }
-
-    /// Extract the [`Pid`] from a `QosPid`, if any.
-    ///
-    /// [`Pid`]: struct.Pid.html
-    pub fn pid(self) -> Option<Pid> {
-        match self {
-            QosPid::AtMostOnce => None,
-            QosPid::AtLeastOnce(p) => Some(p),
-            QosPid::ExactlyOnce(p) => Some(p),
-        }
-    }
-
-    /// Extract the [`QoS`] from a `QosPid`.
-    ///
-    /// [`QoS`]: enum.QoS.html
-    pub fn qos(self) -> QoS {
-        match self {
-            QosPid::AtMostOnce => QoS::AtMostOnce,
-            QosPid::AtLeastOnce(_) => QoS::AtLeastOnce,
-            QosPid::ExactlyOnce(_) => QoS::ExactlyOnce,
-        }
-    }
+pub(crate) fn write_string(buf: &mut [u8], offset: &mut usize, string: &str) -> Result<(), Error> {
+    write_bytes(buf, offset, string.as_bytes())
 }
 
 #[cfg(test)]

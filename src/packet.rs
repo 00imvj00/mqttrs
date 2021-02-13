@@ -1,4 +1,5 @@
-use crate::*;
+use crate::connect::Connect;
+use crate::errors::Error;
 
 /// Base enum for all MQTT packet types.
 ///
@@ -25,29 +26,29 @@ use crate::*;
 /// [`encode()`]: fn.encode.html
 /// [`decode_slice()`]: fn.decode_slice.html
 #[derive(Debug, Clone, PartialEq)]
-pub enum Packet<'a> {
+pub enum Packet {
     /// [MQTT 3.1](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718028)
-    Connect(Connect<'a>),
+    Connect(Connect),
     /// [MQTT 3.2](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718033)
-    Connack(Connack),
-    /// [MQTT 3.3](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718037)
-    Publish(Publish<'a>),
-    /// [MQTT 3.4](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718043)
-    Puback(Pid),
-    /// [MQTT 3.5](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718048)
-    Pubrec(Pid),
-    /// [MQTT 3.6](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718053)
-    Pubrel(Pid),
-    /// [MQTT 3.7](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718058)
-    Pubcomp(Pid),
-    /// [MQTT 3.8](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718063)
-    Subscribe(Subscribe),
-    /// [MQTT 3.9](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718068)
-    Suback(Suback),
-    /// [MQTT 3.10](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718072)
-    Unsubscribe(Unsubscribe),
-    /// [MQTT 3.11](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718077)
-    Unsuback(Pid),
+    //Connack(Connack),
+    ///// [MQTT 3.3](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718037)
+    //Publish(Publish),
+    ///// [MQTT 3.4](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718043)
+    //Puback(Pid),
+    ///// [MQTT 3.5](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718048)
+    //Pubrec(Pid),
+    ///// [MQTT 3.6](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718053)
+    //Pubrel(Pid),
+    ///// [MQTT 3.7](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718058)
+    //Pubcomp(Pid),
+    ///// [MQTT 3.8](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718063)
+    //Subscribe(Subscribe),
+    ///// [MQTT 3.9](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718068)
+    //Suback(Suback),
+    ///// [MQTT 3.10](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718072)
+    //Unsubscribe(Unsubscribe),
+    ///// [MQTT 3.11](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718077)
+    //Unsuback(Pid),
     /// [MQTT 3.12](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718081)
     Pingreq,
     /// [MQTT 3.13](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718086)
@@ -55,7 +56,8 @@ pub enum Packet<'a> {
     /// [MQTT 3.14](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718090)
     Disconnect,
 }
-impl<'a> Packet<'a> {
+
+impl Packet {
     /// Return the packet type variant.
     ///
     /// This can be used for matching, categorising, debuging, etc. Most users will match directly
@@ -78,34 +80,9 @@ impl<'a> Packet<'a> {
             Packet::Disconnect => PacketType::Disconnect,
         }
     }
-}
 
-macro_rules! packet_from_borrowed {
-    ($($t:ident),+) => {
-        $(
-            impl<'a> From<$t<'a>> for Packet<'a> {
-                fn from(p: $t<'a>) -> Self {
-                    Packet::$t(p)
-                }
-            }
-        )+
-    }
+    pub fn decode(data: &[u8]) -> Result<Option<Self>, Error> {}
 }
-macro_rules! packet_from {
-    ($($t:ident),+) => {
-        $(
-            impl<'a> From<$t> for Packet<'a> {
-                fn from(p: $t) -> Self {
-                    Packet::$t(p)
-                }
-            }
-        )+
-    }
-}
-
-packet_from_borrowed!(Connect, Publish);
-packet_from!(Suback, Connack, Subscribe, Unsubscribe);
-
 /// Packet type variant, without the associated data.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum PacketType {

@@ -49,12 +49,16 @@
 #[cfg(feature = "std")]
 extern crate std;
 
+//mod check;
 mod connect;
 mod decoder;
-mod encoder;
+//mod encoder;
+mod errors;
+mod header;
 mod packet;
-mod publish;
-mod subscribe;
+//mod publish;
+mod qos;
+//mod subscribe;
 mod utils;
 
 // Proptest does not currently support borrowed data in strategies:
@@ -63,16 +67,19 @@ mod utils;
 // #[cfg(test)]
 // mod codec_test;
 #[cfg(test)]
-mod decoder_test;
+//mod decoder_test;
 #[cfg(test)]
-mod encoder_test;
-
+//mod encoder_test;
 pub use crate::{
+    //check::check,
     connect::{Connack, Connect, ConnectReturnCode, LastWill, Protocol},
-    decoder::{clone_packet, decode_slice},
-    encoder::encode_slice,
+    decoder::decode,
+    //encoder::encode,
+    errors::Error,
+    header::Header,
     packet::{Packet, PacketType},
-    publish::Publish,
-    subscribe::{Suback, Subscribe, SubscribeReturnCodes, SubscribeTopic, Unsubscribe},
-    utils::{Error, Pid, QoS, QosPid},
+    qos::{QoS, QosPid},
+    //subscribe::{Suback, Subscribe, SubscribeReturnCodes, SubscribeTopic, Unsubscribe},
+    //publish::Publish,
+    utils::Pid,
 };
