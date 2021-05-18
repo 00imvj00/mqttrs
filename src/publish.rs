@@ -1,9 +1,5 @@
 use crate::{decoder::*, encoder::*, *};
 
-// use alloc::{string::String, vec::Vec};
-use heapless::{String, Vec, consts};
-
-
 /// Publish packet ([MQTT 3.3]).
 ///
 /// [MQTT 3.3]: http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718037
