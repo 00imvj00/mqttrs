@@ -1,5 +1,5 @@
-use core::{convert::TryFrom, fmt, num::NonZeroU16};
 use crate::encoder::write_u16;
+use core::{convert::TryFrom, fmt, num::NonZeroU16};
 
 #[cfg(feature = "derive")]
 use serde::{Deserialize, Serialize};
