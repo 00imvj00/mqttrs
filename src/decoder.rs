@@ -1,5 +1,30 @@
 use crate::*;
 
+pub fn clone_packet(input: &[u8], output: &mut [u8]) -> Result<usize, Error> {
+    if input.is_empty() {
+        return Ok(0);
+    }
+
+    let mut offset = 0;
+    // while Header::new(input[offset]).is_err() {
+    //     offset += 1;
+    //     if input[offset..].is_empty() {
+    //         return Ok(0);
+    //     }
+    // }
+
+    let start = offset;
+    if let Some((_, remaining_len)) = read_header(input, &mut offset)? {
+        let end = offset + remaining_len;
+        let len = end - start;
+        output[..len].copy_from_slice(&input[start..end]);
+        Ok(len)
+    } else {
+        // Don't have a full packet
+        Ok(0)
+    }
+}
+
 /// Decode bytes from a [BytesMut] buffer as a [Packet] enum.
 ///
 /// The buf is never actually written to, it only takes a `BytesMut` instead of a `Bytes` to
@@ -26,32 +51,6 @@ use crate::*;
 ///
 /// [Packet]: ../enum.Packet.html
 /// [BytesMut]: https://docs.rs/bytes/1.0.0/bytes/struct.BytesMut.html
-
-pub fn clone_packet(input: &[u8], output: &mut [u8]) -> Result<usize, Error> {
-    if input.is_empty() {
-        return Ok(0);
-    }
-
-    let mut offset = 0;
-    // while Header::new(input[offset]).is_err() {
-    //     offset += 1;
-    //     if input[offset..].is_empty() {
-    //         return Ok(0);
-    //     }
-    // }
-
-    let start = offset;
-    if let Some((_, remaining_len)) = read_header(input, &mut offset)? {
-        let end = offset + remaining_len;
-        let len = end - start;
-        output[..len].copy_from_slice(&input[start..end]);
-        Ok(len)
-    } else {
-        // Don't have a full packet
-        Ok(0)
-    }
-}
-
 pub fn decode_slice<'a>(buf: &'a [u8]) -> Result<Option<Packet<'a>>, Error> {
     let mut offset = 0;
     if let Some((header, remaining_len)) = read_header(buf, &mut offset)? {
