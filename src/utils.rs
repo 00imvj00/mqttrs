@@ -1,5 +1,5 @@
-use core::{convert::TryFrom, fmt, num::NonZeroU16};
 use crate::encoder::write_u16;
+use core::{convert::TryFrom, fmt, num::NonZeroU16};
 
 #[cfg(feature = "derive")]
 use serde::{Deserialize, Serialize};
@@ -31,7 +31,7 @@ pub enum Error {
     #[cfg(feature = "std")]
     InvalidProtocol(std::string::String, u8),
     #[cfg(not(feature = "std"))]
-    InvalidProtocol(heapless::String<heapless::consts::U10>, u8),
+    InvalidProtocol(heapless::String<10>, u8),
     /// Tried to decode an invalid fixed header (packet type, flags, or remaining_length).
     InvalidHeader,
     /// Trying to encode/decode an invalid length.

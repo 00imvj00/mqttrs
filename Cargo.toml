@@ -24,7 +24,7 @@ std = ["bytes", "bytes/std", "serde/std"]
 [dependencies]
 bytes = { version = "1.0", default-features = false, optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true }
-heapless = "0.5.5"
+heapless = "0.7"
 
 [dev-dependencies]
 proptest = "0.10.0"

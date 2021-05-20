@@ -5,12 +5,12 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "std")]
 pub(crate) type LimitedVec<T> = std::vec::Vec<T>;
 #[cfg(not(feature = "std"))]
-pub(crate) type LimitedVec<T> = heapless::Vec<T, heapless::consts::U5>;
+pub(crate) type LimitedVec<T> = heapless::Vec<T, 5>;
 
 #[cfg(feature = "std")]
 pub(crate) type LimitedString = std::string::String;
 #[cfg(not(feature = "std"))]
-pub(crate) type LimitedString = heapless::String<heapless::consts::U256>;
+pub(crate) type LimitedString = heapless::String<256>;
 
 /// Subscribe topic.
 ///

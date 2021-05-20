@@ -1,8 +1,5 @@
 use crate::*;
 
-// use alloc::{string::String, vec::Vec};
-use heapless::{ArrayLength, String, Vec};
-
 /// Decode bytes from a [BytesMut] buffer as a [Packet] enum.
 ///
 /// The buf is never actually written to, it only takes a `BytesMut` instead of a `Bytes` to

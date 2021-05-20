@@ -166,7 +166,10 @@ fn test_connect_wrong_version() {
         0x00, 0x04, 'r' as u8, 'u' as u8, 's' as u8, 't' as u8, // username = 'rust'
         0x00, 0x02, 'm' as u8, 'q' as u8, // password = 'mq'
     ];
-    assert!(decode_slice(&mut data).is_err(), "Unknown version should return error");
+    assert!(
+        decode_slice(&mut data).is_err(),
+        "Unknown version should return error"
+    );
 }
 
 #[test]
