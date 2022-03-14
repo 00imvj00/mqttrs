@@ -173,6 +173,58 @@ fn test_connect_wrong_version() {
 }
 
 #[test]
+fn test_decode_packet_n() {
+    let data: &[u8] = &[
+        // connect packet
+        0b00010000, 39, 0x00, 0x04, 'M' as u8, 'Q' as u8, 'T' as u8, 'T' as u8, 0x04,
+        0b11001110, // +username, +password, -will retain, will qos=1, +last_will, +clean_session
+        0x00, 0x0a, // 10 sec
+        0x00, 0x04, 't' as u8, 'e' as u8, 's' as u8, 't' as u8, // client_id
+        0x00, 0x02, '/' as u8, 'a' as u8, // will topic = '/a'
+        0x00, 0x07, 'o' as u8, 'f' as u8, 'f' as u8, 'l' as u8, 'i' as u8, 'n' as u8,
+        'e' as u8, // will msg = 'offline'
+        0x00, 0x04, 'r' as u8, 'u' as u8, 's' as u8, 't' as u8, // username = 'rust'
+        0x00, 0x02, 'm' as u8, 'q' as u8, // password = 'mq'
+
+        // pingreq packet
+        0b11000000, 0b00000000,
+
+        // pingresp packet
+        0b11010000, 0b00000000,
+    ];
+
+    let pkt1 = Connect {
+        protocol: Protocol::MQTT311,
+        keep_alive: 10,
+        client_id: "test",
+        clean_session: true,
+        last_will: Some(LastWill {
+            topic: "/a",
+            message: b"offline",
+            qos: QoS::AtLeastOnce,
+            retain: false,
+        }),
+        username: Some("rust"),
+        password: Some(b"mq"),
+    };
+
+    let pkt2 = Packet::Pingreq;
+    let pkt3 = Packet::Pingresp;
+
+    // decode 3 packets in a sequence stored in the same buffer
+    let mut cursor: usize = 0;
+    let (n, decode_pkt1) = decode_slice_with_len(&data[cursor..]).unwrap().unwrap();
+    cursor += n;
+    let (n, decode_pkt2) = decode_slice_with_len(&data[cursor..]).unwrap().unwrap();
+    cursor += n;
+    let (_, decode_pkt3) = decode_slice_with_len(&data[cursor..]).unwrap().unwrap();
+
+    assert_eq!(Packet::Connect(pkt1), decode_pkt1);
+    assert_eq!(pkt2, decode_pkt2);
+    assert_eq!(pkt3, decode_pkt3);
+}
+
+#[test]
 fn test_connect() {
     let mut data: &[u8] = &[
         0b00010000, 39, 0x00, 0x04, 'M' as u8, 'Q' as u8, 'T' as u8, 'T' as u8, 0x04,
