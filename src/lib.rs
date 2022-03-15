@@ -69,7 +69,7 @@ mod encoder_test;
 
 pub use crate::{
     connect::{Connack, Connect, ConnectReturnCode, LastWill, Protocol},
-    decoder::{clone_packet, decode_slice},
+    decoder::{clone_packet, decode_slice, decode_slice_with_len},
     encoder::encode_slice,
     packet::{Packet, PacketType},
     publish::Publish,

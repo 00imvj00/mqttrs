@@ -28,12 +28,17 @@ impl<'a> Publish<'a> {
             QoS::ExactlyOnce => QosPid::ExactlyOnce(Pid::from_buffer(buf, offset)?),
         };
 
+        let payload = &buf[*offset..payload_end];
+
+        // update the offset so that it's moved to the end of the payload
+        *offset += payload.len();
+
         Ok(Publish {
             dup: header.dup,
             qospid,
             retain: header.retain,
             topic_name,
-            payload: &buf[*offset..payload_end],
+            payload,
         })
     }
     pub(crate) fn to_buffer(&self, buf: &mut [u8], offset: &mut usize) -> Result<usize, Error> {
