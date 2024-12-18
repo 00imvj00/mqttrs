@@ -1,3 +1,6 @@
+#[cfg(feature = "defmt")]
+use defmt::Format;
+
 use crate::*;
 
 /// Base enum for all MQTT packet types.
@@ -24,6 +27,7 @@ use crate::*;
 ///
 /// [`encode()`]: fn.encode.html
 /// [`decode_slice()`]: fn.decode_slice.html
+#[cfg_attr(feature = "defmt",derive(Format))]
 #[derive(Debug, Clone, PartialEq)]
 pub enum Packet<'a> {
     /// [MQTT 3.1](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718028)
@@ -107,6 +111,7 @@ packet_from_borrowed!(Connect, Publish);
 packet_from!(Suback, Connack, Subscribe, Unsubscribe);
 
 /// Packet type variant, without the associated data.
+#[cfg_attr(feature = "defmt",derive(Format))]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum PacketType {
     Connect,

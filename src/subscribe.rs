@@ -1,22 +1,27 @@
+#[cfg(feature = "defmt")]
+use defmt::Format;
 use crate::{decoder::*, encoder::*, *};
 #[cfg(feature = "derive")]
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "std")]
-pub(crate) type LimitedVec<T> = std::vec::Vec<T>;
+pub type LimitedVec<T> = std::vec::Vec<T>;
 #[cfg(not(feature = "std"))]
-pub(crate) type LimitedVec<T> = heapless::Vec<T, 5>;
+pub type LimitedVec<T> = heapless::Vec<T, 5>;
 
 #[cfg(feature = "std")]
-pub(crate) type LimitedString = std::string::String;
+pub type LimitedString = std::string::String;
 #[cfg(not(feature = "std"))]
-pub(crate) type LimitedString = heapless::String<256>;
+pub type LimitedString = heapless::String<256>;
+
+use core::str::FromStr;
 
 /// Subscribe topic.
 ///
 /// [Subscribe] packets contain a `Vec` of those.
 ///
 /// [Subscribe]: struct.Subscribe.html
+#[cfg_attr(feature = "defmt",derive(Format))]
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "derive", derive(Serialize, Deserialize))]
 pub struct SubscribeTopic {
@@ -26,7 +31,7 @@ pub struct SubscribeTopic {
 
 impl SubscribeTopic {
     pub(crate) fn from_buffer(buf: &[u8], offset: &mut usize) -> Result<Self, Error> {
-        let topic_path = LimitedString::from(read_str(buf, offset)?);
+        let topic_path = LimitedString::from_str(read_str(buf, offset)?).unwrap();
         let qos = QoS::from_u8(buf[*offset])?;
         *offset += 1;
         Ok(SubscribeTopic { topic_path, qos })
@@ -38,6 +43,7 @@ impl SubscribeTopic {
 /// [Suback] packets contain a `Vec` of those.
 ///
 /// [Suback]: struct.Subscribe.html
+#[cfg_attr(feature = "defmt",derive(Format))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SubscribeReturnCodes {
     Success(QoS),
@@ -67,6 +73,7 @@ impl SubscribeReturnCodes {
 /// Subscribe packet ([MQTT 3.8]).
 ///
 /// [MQTT 3.8]: http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718063
+#[cfg_attr(feature = "defmt",derive(Format))]
 #[derive(Debug, Clone, PartialEq)]
 pub struct Subscribe {
     pub pid: Pid,
@@ -76,6 +83,7 @@ pub struct Subscribe {
 /// Subsack packet ([MQTT 3.9]).
 ///
 /// [MQTT 3.9]: http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718068
+#[cfg_attr(feature = "defmt",derive(Format))]
 #[derive(Debug, Clone, PartialEq)]
 pub struct Suback {
     pub pid: Pid,
@@ -85,6 +93,7 @@ pub struct Suback {
 /// Unsubscribe packet ([MQTT 3.10]).
 ///
 /// [MQTT 3.10]: http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718072
+#[cfg_attr(feature = "defmt",derive(Format))]
 #[derive(Debug, Clone, PartialEq)]
 pub struct Unsubscribe {
     pub pid: Pid,
@@ -155,7 +164,7 @@ impl Unsubscribe {
 
         let mut topics = LimitedVec::new();
         while *offset < payload_end {
-            let _res = topics.push(LimitedString::from(read_str(buf, offset)?));
+            let _res = topics.push(LimitedString::from_str(read_str(buf, offset)?).unwrap());
 
             #[cfg(not(feature = "std"))]
             _res.map_err(|_| Error::InvalidLength)?;

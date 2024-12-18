@@ -1,6 +1,7 @@
 use crate::*;
 use core::convert::TryFrom;
 use subscribe::{LimitedString, LimitedVec};
+use core::str::FromStr;
 
 #[cfg(feature = "std")]
 use bytes::BytesMut;
@@ -130,11 +131,24 @@ fn test_pubcomp() {
     // assert_decode!(Packet::Pubcomp(_), &packet);
     assert_decode_slice!(Packet::Pubcomp(_), &packet, 4);
 }
-
+#[cfg(feature = "std")]
 #[test]
 fn test_subscribe() {
     let stopic = SubscribeTopic {
         topic_path: LimitedString::from("a/b"),
+        qos: QoS::ExactlyOnce,
+    };
+    let topics: LimitedVec<SubscribeTopic> = [stopic].iter().cloned().collect();
+    let packet = Subscribe::new(Pid::try_from(345).unwrap(), topics).into();
+    // assert_decode!(Packet::Subscribe(_), &packet);
+    assert_decode_slice!(Packet::Subscribe(_), &packet, 10);
+}
+
+#[cfg(not(feature = "std"))]
+#[test]
+fn test_subscribe() {
+    let stopic = SubscribeTopic {
+        topic_path: LimitedString::from_str("a/b").unwrap(),
         qos: QoS::ExactlyOnce,
     };
     let topics: LimitedVec<SubscribeTopic> = [stopic].iter().cloned().collect();
@@ -156,7 +170,10 @@ fn test_suback() {
 
 #[test]
 fn test_unsubscribe() {
+    #[cfg(feature = "std")]
     let topics: LimitedVec<LimitedString> = [LimitedString::from("a/b")].iter().cloned().collect();
+    #[cfg(not(feature = "std"))]
+    let topics: LimitedVec<LimitedString> = [LimitedString::from_str("a/b").unwrap()].iter().cloned().collect();
 
     let packet = Unsubscribe::new(Pid::try_from(12321).unwrap(), topics).into();
     // assert_decode!(Packet::Unsubscribe(_), &packet);

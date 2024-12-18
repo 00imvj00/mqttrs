@@ -1,6 +1,7 @@
 use crate::*;
 use bytes::BytesMut;
 use subscribe::LimitedString;
+use core::str::FromStr;
 
 macro_rules! header {
     ($t:ident, $d:expr, $q:ident, $r:expr) => {
@@ -421,6 +422,7 @@ fn test_pub_comp() {
     };
 }
 
+#[cfg(feature = "std")]
 #[test]
 fn test_subscribe() {
     let mut data: &[u8] = &[
@@ -431,6 +433,25 @@ fn test_subscribe() {
             assert_eq!(s.pid.get(), 10);
             let t = SubscribeTopic {
                 topic_path: LimitedString::from("a/b"),
+                qos: QoS::AtMostOnce,
+            };
+            assert_eq!(s.topics.get(0), Some(&t));
+        }
+        other => panic!("Failed decode: {:?}", other),
+    }
+}
+
+#[cfg(not(feature = "std"))]
+#[test]
+fn test_subscribe() {
+    let mut data: &[u8] = &[
+        0b10000010, 8, 0, 10, 0, 3, 'a' as u8, '/' as u8, 'b' as u8, 0,
+    ];
+    match decode_slice(&mut data) {
+        Ok(Some(Packet::Subscribe(s))) => {
+            assert_eq!(s.pid.get(), 10);
+            let t = SubscribeTopic {
+                topic_path: LimitedString::from_str("a/b").unwrap(),
                 qos: QoS::AtMostOnce,
             };
             assert_eq!(s.topics.get(0), Some(&t));
@@ -454,6 +475,7 @@ fn test_suback() {
     }
 }
 
+#[cfg(feature = "std")]
 #[test]
 fn test_unsubscribe() {
     let mut data: &[u8] = &[0b10100010, 5, 0, 10, 0, 1, 'a' as u8];
@@ -461,6 +483,19 @@ fn test_unsubscribe() {
         Ok(Some(Packet::Unsubscribe(a))) => {
             assert_eq!(a.pid.get(), 10);
             assert_eq!(a.topics.get(0), Some(&LimitedString::from("a")));
+        }
+        other => panic!("Failed decode: {:?}", other),
+    }
+}
+
+#[cfg(not(feature = "std"))]
+#[test]
+fn test_unsubscribe() {
+    let mut data: &[u8] = &[0b10100010, 5, 0, 10, 0, 1, 'a' as u8];
+    match decode_slice(&mut data) {
+        Ok(Some(Packet::Unsubscribe(a))) => {
+            assert_eq!(a.pid.get(), 10);
+            assert_eq!(a.topics.get(0), Some(&LimitedString::from_str("a").unwrap()));
         }
         other => panic!("Failed decode: {:?}", other),
     }
