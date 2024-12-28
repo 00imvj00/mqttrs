@@ -8,7 +8,6 @@ on:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
@@ -17,3 +16,25 @@ jobs:
       run: cargo build --verbose
     - name: Run tests
       run: cargo test --verbose
+    - name: Build serde
+      run: cargo build --verbose --features=derive
+    - name: Run tests serde
+      run: cargo test --verbose --features=derive
+    - name: Build no_std
+      run: cargo build --verbose --no-default-features
+    - name: Run tests no_std
+      run: cargo test --verbose --no-default-features
+    - name: Build no_std
+      run: cargo build --verbose --no-default-features --features=derive
+    - name: Run tests no_std
+      run: cargo test --verbose --no-default-features --features=derive
+    - name: Build defmt
+      run: cargo build --verbose --no-default-features --features=defmt
+    - name: Run tests defmt
+      run: cargo test --verbose --no-default-features --features=defmt
+    - name: Build defmt derive
+      run: cargo build --verbose --no-default-features --features=defmt --features=derive
+    - name: Run tests defmt derive
+      run: cargo test --verbose --no-default-features --features=defmt --features=derive
+
+

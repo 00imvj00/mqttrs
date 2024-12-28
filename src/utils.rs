@@ -1,3 +1,7 @@
+#[cfg(feature = "defmt")]
+use defmt::{Format};
+
+
 use crate::encoder::write_u16;
 use core::{convert::TryFrom, fmt, num::NonZeroU16};
 
@@ -15,6 +19,9 @@ use std::{
 ///
 /// [`encode()`]: fn.encode.html
 /// [`decode()`]: fn.decode.html
+
+
+#[cfg_attr(feature = "defmt",derive(Format))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Error {
     /// Not enough space in the write buffer.
@@ -40,7 +47,7 @@ pub enum Error {
     /// length rather than a buffer size issue.
     InvalidLength,
     /// Trying to decode a non-utf8 string.
-    InvalidString(core::str::Utf8Error),
+    InvalidString(#[cfg_attr(feature = "defmt",defmt(Debug2Format))] core::str::Utf8Error),
     /// Catch-all error when converting from `std::io::Error`.
     ///
     /// Note: Only available when std is available.
@@ -106,6 +113,8 @@ impl From<IoError> for Error {
 /// [`QoS::AtLeastOne` or `QoS::ExactlyOnce`]: enum.QoS.html
 /// [MQTT-2.3.1-1]: https://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718025
 /// [MQTT-2.2.1-3]: https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901026
+
+#[cfg_attr(feature = "defmt",derive(Format))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "derive", derive(Serialize, Deserialize))]
 pub struct Pid(NonZeroU16);
@@ -186,6 +195,7 @@ impl TryFrom<u16> for Pid {
 /// Packet delivery [Quality of Service] level.
 ///
 /// [Quality of Service]: http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718099
+#[cfg_attr(feature = "defmt",derive(Format))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "derive", derive(Serialize, Deserialize))]
 pub enum QoS {
@@ -223,6 +233,7 @@ impl QoS {
 /// [`Publish`]: struct.Publish.html
 /// [`QoS`]: enum.QoS.html
 /// [`Pid`]: struct.Pid.html
+#[cfg_attr(feature = "defmt",derive(Format))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "derive", derive(Serialize, Deserialize))]
 pub enum QosPid {
