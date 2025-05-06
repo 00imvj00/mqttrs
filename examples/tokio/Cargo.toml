@@ -1,0 +1,8 @@
+[package]
+name = "mqttrs-tokio-client-example"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+mqttrs = { path = "../../" }
+tokio = { version = "1.45.0", features = ["io-util", "macros", "net", "rt-multi-thread", "sync", "time"] }

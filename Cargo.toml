@@ -1,22 +1,35 @@
-[package]
-name = "mqttrs"
+[workspace]
+members = [
+    ".",
+    "examples/tokio"
+]
+
+[workspace.package]
 version = "0.4.1"
+license = "Apache-2.0"
+edition = "2018"
+repository = "https://github.com/00imvj00/mqttrs"
+keywords = ["mqtt", "pubsub", "publish-subscribe", "codec"]
+categories = ["encoding", "network-programming", "no-std"]
 authors = ["00imvj00 <vijaybambhaniya007@gmail.com>",
            "Vincent de Phily <moltonel@gmail.com>",
            "Mathias Koch <smilykoch@gmail.com>"]
-edition = "2018"
-description = "Mqtt protocol encoding and decoding"
+
+[package]
+name = "mqttrs"
 readme = "README.md"
 homepage = "https://github.com/00imvj00/mqttrs"
-repository = "https://github.com/00imvj00/mqttrs"
 documentation = "https://docs.rs/mqttrs"
-keywords = ["mqtt", "pubsub", "publish-subscribe", "codec"]
-categories = ["encoding", "network-programming", "no-std"]
-license = "Apache-2.0"
+description = "Mqtt protocol encoding and decoding"
+version.workspace = true
+license.workspace = true
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
 
 [features]
 default = ["std"]
-
+ 
 # Implements serde::{Serialize,Deserialize} on mqttrs::Pid.
 derive = ["serde", "heapless/serde"]
 std = ["bytes/std", "serde/std"]
